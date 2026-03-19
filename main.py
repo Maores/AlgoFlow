@@ -56,17 +56,17 @@ class App:
 
         # --- Control bar components (relative positioning) ---
         control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
-        btn_y = control_y + (CONTROL_PANEL_HEIGHT - 34) // 2
-        gap = 12
-        x = gap
+        btn_y = control_y + (CONTROL_PANEL_HEIGHT - 32) // 2
+        gap = 8
+        x = 10
 
         # Start/Pause button
-        self.start_button = Button(x, btn_y, 90, 34, "\u25b6 Start", self.font_small)
-        x += 90 + 6
+        self.start_button = Button(x, btn_y, 82, 32, "\u25b6 Start", self.font_small)
+        x += 82 + 4
 
         # Reset button
-        self.reset_button = Button(x, btn_y, 72, 34, "\u21bb Reset", self.font_small)
-        x += 72 + gap
+        self.reset_button = Button(x, btn_y, 66, 32, "\u21bb Reset", self.font_small)
+        x += 66 + gap
 
         # Divider 1 position
         self.div1_x = x
@@ -77,9 +77,9 @@ class App:
         self.speed_slider = Slider(
             x + slider_label_w,
             control_y + CONTROL_PANEL_HEIGHT // 2,
-            120, 1, 100, 50, label="Speed"
+            100, 1, 100, 50, label="Speed"
         )
-        x += slider_label_w + 120 + gap
+        x += slider_label_w + 100 + gap
 
         # Divider 2 position
         self.div2_x = x
@@ -88,10 +88,9 @@ class App:
         # Algorithm selector
         algo_labels = list(ALGORITHM_INFO.keys())
         self.algo_group = ButtonGroup(
-            x, btn_y + 2, algo_labels, self.font_small, active_index=0
+            x, btn_y + 1, algo_labels, self.font_small, active_index=0
         )
-        # Calculate algo group width
-        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 4 * (len(algo_labels) - 1)
+        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(algo_labels) - 1)
         x += algo_width + gap
 
         # Divider 3 position
@@ -101,7 +100,7 @@ class App:
         # Size selector
         default_idx = SIZE_OPTIONS.index(str(DEFAULT_ARRAY_SIZE))
         self.size_group = ButtonGroup(
-            x, btn_y + 2, SIZE_OPTIONS, self.font_small, active_index=default_idx
+            x, btn_y + 1, SIZE_OPTIONS, self.font_small, active_index=default_idx
         )
 
         self.control_y = control_y
@@ -231,7 +230,7 @@ class App:
         self.size_group.draw(self.screen)
 
         # Keyboard hints (right-aligned in control bar)
-        hint = "SPACE: play/pause \u00b7 R: reset"
+        hint = "SPACE / R"
         hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
         hint_rect = hint_surf.get_rect(
             right=WINDOW_WIDTH - 12,
