@@ -2,23 +2,30 @@
 # All colors, sizes, and constants in one place
 
 # Window
-WINDOW_WIDTH = 1200
-WINDOW_HEIGHT = 800
+WINDOW_WIDTH = 960
+WINDOW_HEIGHT = 640
 FPS = 60
 TITLE = "AlgoFlow"
 
 # Layout
-TAB_BAR_HEIGHT = 50
-CONTROL_PANEL_HEIGHT = 60
-INFO_PANEL_WIDTH = 220
-CANVAS_TOP = TAB_BAR_HEIGHT + 10
-CANVAS_BOTTOM = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT - 10
+HEADER_HEIGHT = 44
+CONTROL_PANEL_HEIGHT = 56
+INFO_PANEL_WIDTH = 260
+
+# Visualization
+BOX_MODE_THRESHOLD = 30
+DEFAULT_ARRAY_SIZE = 20
+SIZE_OPTIONS = ["10", "20", "30", "50", "100"]
 
 # Colors (RGB tuples)
 class Colors:
     # Background
     BG = (20, 20, 30)
     PANEL_BG = (30, 30, 45)
+
+    # Header / branding
+    HEADER_BG = (25, 25, 38)
+    BRAND_TEXT = (255, 255, 255)
 
     # Tab bar
     TAB_ACTIVE = (60, 130, 200)
@@ -33,6 +40,15 @@ class Colors:
     BAR_SWAPPING = (255, 200, 50)
     BAR_SORTED = (50, 200, 100)
     BAR_PIVOT = (200, 100, 255)
+
+    # Box visualization
+    BOX_BG = (45, 45, 65)
+    BOX_BORDER = (70, 70, 100)
+    BOX_TEXT = (220, 220, 230)
+
+    # Info panel cards
+    CARD_BG = (38, 38, 55)
+    CARD_BORDER = (55, 55, 75)
 
     # Pathfinding grid
     GRID_EMPTY = (40, 40, 55)
@@ -59,6 +75,7 @@ class Colors:
     TEXT_PRIMARY = (220, 220, 230)
     TEXT_SECONDARY = (140, 140, 160)
     TEXT_ACCENT = (100, 180, 230)
+    HINT_TEXT = (100, 100, 120)
 
     # Slider
     SLIDER_TRACK = (55, 55, 80)
@@ -67,10 +84,12 @@ class Colors:
 
 # Fonts (initialized after pygame.init())
 FONT_SIZES = {
-    "small": 14,
-    "medium": 18,
-    "large": 24,
-    "title": 32,
+    "tiny": 11,
+    "small": 13,
+    "medium": 16,
+    "large": 20,
+    "title": 24,
+    "brand": 18,
 }
 
 # Tabs

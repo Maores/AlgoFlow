@@ -4,7 +4,8 @@ import pygame
 import sys
 from config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE,
-    TAB_BAR_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH, Colors
+    HEADER_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH,
+    SIZE_OPTIONS, DEFAULT_ARRAY_SIZE, Colors
 )
 from ui.tab_bar import TabBar
 from ui.button import Button
@@ -18,13 +19,7 @@ from algorithms.sorting import ALGORITHM_INFO
 
 
 class App:
-    """
-    Main application class - manages the game loop, tabs, and visualizers.
-
-    The App class follows the Mediator pattern - it coordinates between
-    the TabBar (navigation) and Visualizers (content) without them
-    knowing about each other.
-    """
+    """Main application class - manages the game loop, tabs, and visualizers."""
 
     def __init__(self):
         pygame.init()
@@ -32,23 +27,23 @@ class App:
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
 
-        # Fonts - created once, reused every frame
-        self.font_medium = pygame.font.SysFont("Arial", 18)
-        self.font_small = pygame.font.SysFont("Arial", 14)
+        # Fonts - created once
+        self.font_small = pygame.font.SysFont("Arial", 13)
+        self.font_hint = pygame.font.SysFont("Arial", 11)
 
-        # UI components
-        self.tab_bar = TabBar()
+        # Header with branding + tabs
+        self.tab_bar = TabBar(WINDOW_WIDTH)
 
-        # Canvas area (leaves room for info panel on the right)
-        canvas_y = TAB_BAR_HEIGHT + 5
-        canvas_height = WINDOW_HEIGHT - TAB_BAR_HEIGHT - CONTROL_PANEL_HEIGHT - 10
-        canvas_width = WINDOW_WIDTH - INFO_PANEL_WIDTH
-        self.canvas_rect = pygame.Rect(0, canvas_y, canvas_width, canvas_height)
+        # Canvas area (between header and control bar, left of info panel)
+        canvas_y = HEADER_HEIGHT
+        canvas_h = WINDOW_HEIGHT - HEADER_HEIGHT - CONTROL_PANEL_HEIGHT
+        canvas_w = WINDOW_WIDTH - INFO_PANEL_WIDTH
+        self.canvas_rect = pygame.Rect(0, canvas_y, canvas_w, canvas_h)
 
         # Info panel (right side)
         info_rect = pygame.Rect(
             WINDOW_WIDTH - INFO_PANEL_WIDTH, canvas_y,
-            INFO_PANEL_WIDTH, canvas_height
+            INFO_PANEL_WIDTH, canvas_h
         )
         self.info_panel = InfoPanel(info_rect)
 
@@ -59,30 +54,57 @@ class App:
             "Trees": TreeVisualizer(self.canvas_rect),
         }
 
-        # Control bar components
+        # --- Control bar components (relative positioning) ---
         control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
-        btn_y = control_y + (CONTROL_PANEL_HEIGHT - 36) // 2
+        btn_y = control_y + (CONTROL_PANEL_HEIGHT - 34) // 2
+        gap = 12
+        x = gap
 
-        self.start_button = Button(16, btn_y, 100, 36, "\u25b6 Start", self.font_small)
-        self.reset_button = Button(124, btn_y, 80, 36, "\u21bb Reset", self.font_small)
+        # Start/Pause button
+        self.start_button = Button(x, btn_y, 90, 34, "\u25b6 Start", self.font_small)
+        x += 90 + 6
 
-        # Speed slider - label "Speed" drawn by slider itself
-        slider_x = 260
+        # Reset button
+        self.reset_button = Button(x, btn_y, 72, 34, "\u21bb Reset", self.font_small)
+        x += 72 + gap
+
+        # Divider 1 position
+        self.div1_x = x
+        x += gap
+
+        # Speed slider
+        slider_label_w = self.font_small.size("Speed")[0] + 8
         self.speed_slider = Slider(
-            slider_x, control_y + CONTROL_PANEL_HEIGHT // 2,
-            160, 1, 100, 50, label="Speed"
+            x + slider_label_w,
+            control_y + CONTROL_PANEL_HEIGHT // 2,
+            120, 1, 100, 50, label="Speed"
         )
+        x += slider_label_w + 120 + gap
+
+        # Divider 2 position
+        self.div2_x = x
+        x += gap
 
         # Algorithm selector
         algo_labels = list(ALGORITHM_INFO.keys())
         self.algo_group = ButtonGroup(
-            480, btn_y + 2, algo_labels, self.font_small, active_index=0
+            x, btn_y + 2, algo_labels, self.font_small, active_index=0
         )
+        # Calculate algo group width
+        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 4 * (len(algo_labels) - 1)
+        x += algo_width + gap
+
+        # Divider 3 position
+        self.div3_x = x
+        x += gap
 
         # Size selector
+        default_idx = SIZE_OPTIONS.index(str(DEFAULT_ARRAY_SIZE))
         self.size_group = ButtonGroup(
-            750, btn_y + 2, ["20", "50", "100"], self.font_small, active_index=1
+            x, btn_y + 2, SIZE_OPTIONS, self.font_small, active_index=default_idx
         )
+
+        self.control_y = control_y
 
         # Set initial info panel state
         self._update_info_panel()
@@ -96,7 +118,6 @@ class App:
         self.running = True
 
     def _update_info_panel(self):
-        """Update info panel with current algorithm metadata."""
         viz = self.visualizers.get("Sorting")
         if viz and hasattr(viz, "get_algorithm_info"):
             info = viz.get_algorithm_info()
@@ -106,12 +127,10 @@ class App:
             )
 
     def get_active_visualizer(self):
-        """Return the currently active visualizer based on selected tab."""
         tab_name = self.tab_bar.get_active_tab()
         return self.visualizers[tab_name]
 
     def handle_events(self):
-        """Process all input events."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -126,10 +145,8 @@ class App:
                 elif event.key == pygame.K_r:
                     self.get_active_visualizer().reset()
 
-            # Tab bar events
             self.tab_bar.handle_event(event)
 
-            # Control bar events (only affect sorting for now)
             viz = self.get_active_visualizer()
 
             if self.start_button.handle_event(event):
@@ -149,14 +166,11 @@ class App:
             if size_change and hasattr(viz, "set_array_size"):
                 viz.set_array_size(int(size_change))
 
-            # Active visualizer events
             viz.handle_event(event)
 
     def update(self):
-        """Update the active visualizer."""
         viz = self.get_active_visualizer()
         if viz.is_running and not viz.is_complete:
-            # Speed control: map slider value to steps per frame
             speed_val = self.speed_slider.get_value()
             steps = max(1, int(speed_val / 5))
             for _ in range(steps):
@@ -177,12 +191,19 @@ class App:
         else:
             self.start_button.text = "\u25b6 Start"
 
+    def _draw_divider(self, x):
+        """Draw a subtle vertical divider in the control bar."""
+        pygame.draw.line(
+            self.screen, (50, 50, 65),
+            (x, self.control_y + 14),
+            (x, self.control_y + CONTROL_PANEL_HEIGHT - 14), 1
+        )
+
     def draw(self):
-        """Draw everything to the screen."""
         self.screen.fill(Colors.BG)
 
-        # Tab bar
-        self.tab_bar.draw(self.screen, self.font_medium)
+        # Header (brand + tabs)
+        self.tab_bar.draw(self.screen)
 
         # Active visualizer
         self.get_active_visualizer().draw(self.screen)
@@ -191,50 +212,36 @@ class App:
         self.info_panel.draw(self.screen)
 
         # Control bar background
-        control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
-        control_rect = pygame.Rect(0, control_y, WINDOW_WIDTH, CONTROL_PANEL_HEIGHT)
+        control_rect = pygame.Rect(0, self.control_y, WINDOW_WIDTH, CONTROL_PANEL_HEIGHT)
         pygame.draw.rect(self.screen, Colors.PANEL_BG, control_rect)
+        # Top border
+        pygame.draw.line(
+            self.screen, (40, 40, 55),
+            (0, self.control_y), (WINDOW_WIDTH, self.control_y), 1
+        )
 
         # Control bar components
         self.start_button.draw(self.screen)
         self.reset_button.draw(self.screen)
-
-        # Divider after buttons
-        div_x = 216
-        pygame.draw.line(
-            self.screen, Colors.TEXT_SECONDARY,
-            (div_x, control_y + 12), (div_x, control_y + CONTROL_PANEL_HEIGHT - 12), 1
-        )
-
+        self._draw_divider(self.div1_x)
         self.speed_slider.draw(self.screen, self.font_small)
-
-        # Divider after slider
-        div_x = 440
-        pygame.draw.line(
-            self.screen, Colors.TEXT_SECONDARY,
-            (div_x, control_y + 12), (div_x, control_y + CONTROL_PANEL_HEIGHT - 12), 1
-        )
-
+        self._draw_divider(self.div2_x)
         self.algo_group.draw(self.screen)
-
-        # Divider after algo group
-        div_x = 720
-        pygame.draw.line(
-            self.screen, Colors.TEXT_SECONDARY,
-            (div_x, control_y + 12), (div_x, control_y + CONTROL_PANEL_HEIGHT - 12), 1
-        )
-
+        self._draw_divider(self.div3_x)
         self.size_group.draw(self.screen)
 
-        # FPS counter (top right, subtle)
-        fps_text = f"FPS: {int(self.clock.get_fps())}"
-        fps_surf = self.font_small.render(fps_text, True, Colors.TEXT_SECONDARY)
-        self.screen.blit(fps_surf, (WINDOW_WIDTH - INFO_PANEL_WIDTH - 80, TAB_BAR_HEIGHT + 10))
+        # Keyboard hints (right-aligned in control bar)
+        hint = "SPACE: play/pause \u00b7 R: reset"
+        hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
+        hint_rect = hint_surf.get_rect(
+            right=WINDOW_WIDTH - 12,
+            centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
+        )
+        self.screen.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
 
     def run(self):
-        """Main game loop."""
         while self.running:
             self.handle_events()
             self.update()
