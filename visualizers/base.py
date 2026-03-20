@@ -67,3 +67,7 @@ class BaseVisualizer(ABC):
     def set_speed(self, speed):
         """Set animation speed (0-100)."""
         self.speed = max(0, min(100, speed))
+
+    def set_canvas_rect(self, rect):
+        """Update the drawable area (called on window resize)."""
+        self.canvas_rect = rect

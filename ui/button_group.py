@@ -35,6 +35,14 @@ class ButtonGroup:
                     return self.labels[i]
         return None
 
+    def set_position(self, x, y):
+        """Reposition all buttons starting from (x, y)."""
+        current_x = x
+        for btn in self.buttons:
+            btn.rect.x = current_x
+            btn.rect.y = y
+            current_x += btn.rect.width + 3
+
     def get_active(self):
         """Return the currently active label."""
         return self.labels[self.active_index]

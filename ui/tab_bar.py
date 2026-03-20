@@ -39,6 +39,11 @@ class TabBar:
             self.tab_rects.append(pygame.Rect(x, tab_y, tab_w, tab_height))
             x += tab_w + tab_gap
 
+    def resize(self, width):
+        """Update width and rebuild tab positions for new window width."""
+        self.width = width
+        self._build_tabs()
+
     def handle_event(self, event):
         """Handle mouse events. Returns True if tab changed."""
         if event.type == pygame.MOUSEMOTION:

@@ -58,6 +58,13 @@ class Slider:
         """Return current slider value."""
         return self.value
 
+    def set_position(self, x, y, width=None):
+        """Reposition the slider (used on window resize)."""
+        self.x = x
+        self.y = y
+        if width is not None:
+            self.width = width
+
     def draw(self, surface, font):
         """Draw track, fill, knob, and label."""
         # Draw label to the left
