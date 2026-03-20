@@ -27,9 +27,9 @@ class SortingVisualizer(BaseVisualizer):
         self.generator = None
 
         # Fonts created once, reused every frame
-        self.font_box_large = pygame.font.SysFont("Arial", 14, bold=True)
-        self.font_box_small = pygame.font.SysFont("Arial", 12, bold=True)
-        self.font_index = pygame.font.SysFont("Arial", 10)
+        self.font_box_large = pygame.font.SysFont("Arial", 16, bold=True)
+        self.font_box_small = pygame.font.SysFont("Arial", 13, bold=True)
+        self.font_index = pygame.font.SysFont("Arial", 12)
 
         self.reset()
 
@@ -125,13 +125,20 @@ class SortingVisualizer(BaseVisualizer):
     def _draw_boxes(self, surface):
         """Draw array as horizontal row of boxes with values."""
         n = self.array_size
-        padding = 24
+        padding = 28
         available_width = self.canvas_rect.width - 2 * padding
 
-        # Calculate box size to fit
-        gap = 3
-        box_size = min(42, max(28, (available_width - (n - 1) * gap) // n))
-        font = self.font_box_large if box_size >= 36 else self.font_box_small
+        # Adaptive box sizing — no minimum floor, scales to fit canvas
+        gap = 4
+        box_size = min(52, (available_width - (n - 1) * gap) // n)
+
+        # Adaptive font: large for roomy boxes, small for compact, none if too tight
+        if box_size >= 40:
+            font = self.font_box_large
+        elif box_size >= 24:
+            font = self.font_box_small
+        else:
+            font = None  # too small for text — just colored boxes
 
         total_width = n * box_size + (n - 1) * gap
         start_x = self.canvas_rect.x + (self.canvas_rect.width - total_width) // 2
@@ -149,14 +156,15 @@ class SortingVisualizer(BaseVisualizer):
             # Colored border (2px)
             pygame.draw.rect(surface, color, box_rect, width=2, border_radius=4)
 
-            # Value text centered in box
-            val_surf = font.render(str(val), True, Colors.BOX_TEXT)
-            val_rect = val_surf.get_rect(center=box_rect.center)
-            surface.blit(val_surf, val_rect)
+            # Value text centered in box (only if box is large enough)
+            if font is not None:
+                val_surf = font.render(str(val), True, Colors.BOX_TEXT)
+                val_rect = val_surf.get_rect(center=box_rect.center)
+                surface.blit(val_surf, val_rect)
 
             # Index below box
             idx_surf = self.font_index.render(str(i), True, Colors.TEXT_SECONDARY)
-            idx_rect = idx_surf.get_rect(centerx=box_rect.centerx, top=box_rect.bottom + 3)
+            idx_rect = idx_surf.get_rect(centerx=box_rect.centerx, top=box_rect.bottom + 4)
             surface.blit(idx_surf, idx_rect)
 
     def _draw_bars(self, surface):

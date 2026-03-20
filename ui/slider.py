@@ -15,8 +15,8 @@ class Slider:
         self.value = initial_val
         self.label = label
         self.dragging = False
-        self.knob_radius = 8
-        self.track_height = 6
+        self.knob_radius = 9
+        self.track_height = 7
 
     def _get_knob_x(self):
         """Calculate knob x position from current value."""

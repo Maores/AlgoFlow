@@ -13,8 +13,8 @@ class TabBar:
         self.hover_tab = -1
 
         # Fonts - created once
-        self.font_brand = pygame.font.SysFont("Arial", 18, bold=True)
-        self.font_tab = pygame.font.SysFont("Arial", 14)
+        self.font_brand = pygame.font.SysFont("Arial", 22, bold=True)
+        self.font_tab = pygame.font.SysFont("Arial", 16)
 
         # Brand area
         self.brand_x = 16
@@ -26,7 +26,7 @@ class TabBar:
     def _build_tabs(self):
         """Calculate pill-style tab positions, starting after brand area."""
         tab_padding_h = 16  # horizontal padding inside each tab
-        tab_height = 30
+        tab_height = 34
         tab_gap = 6
         tab_y = (HEADER_HEIGHT - tab_height) // 2
 

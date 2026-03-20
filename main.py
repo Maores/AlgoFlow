@@ -1,5 +1,6 @@
 # main.py - AlgoFlow
 # Entry point with game loop, tab switching, control bar, and event handling
+import math
 import pygame
 import sys
 from config import (
@@ -23,13 +24,18 @@ class App:
 
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.screen = pygame.display.set_mode(
+            (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SCALED
+        )
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
 
+        # Speed accumulator for time-based stepping
+        self.step_accumulator = 0.0
+
         # Fonts - created once
-        self.font_small = pygame.font.SysFont("Arial", 13)
-        self.font_hint = pygame.font.SysFont("Arial", 11)
+        self.font_small = pygame.font.SysFont("Arial", 15)
+        self.font_hint = pygame.font.SysFont("Arial", 13)
 
         # Header with branding + tabs
         self.tab_bar = TabBar(WINDOW_WIDTH)
@@ -56,17 +62,18 @@ class App:
 
         # --- Control bar components (relative positioning) ---
         control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
-        btn_y = control_y + (CONTROL_PANEL_HEIGHT - 32) // 2
-        gap = 8
-        x = 10
+        btn_h = 34
+        btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
+        gap = 14
+        x = 14
 
-        # Start/Pause button
-        self.start_button = Button(x, btn_y, 82, 32, "\u25b6 Start", self.font_small)
-        x += 82 + 4
+        # Start/Pause button (no unicode icons — avoids glyph rendering artifacts)
+        self.start_button = Button(x, btn_y, 96, btn_h, "Start", self.font_small)
+        x += 96 + 6
 
         # Reset button
-        self.reset_button = Button(x, btn_y, 66, 32, "\u21bb Reset", self.font_small)
-        x += 66 + gap
+        self.reset_button = Button(x, btn_y, 76, btn_h, "Reset", self.font_small)
+        x += 76 + gap
 
         # Divider 1 position
         self.div1_x = x
@@ -77,9 +84,9 @@ class App:
         self.speed_slider = Slider(
             x + slider_label_w,
             control_y + CONTROL_PANEL_HEIGHT // 2,
-            100, 1, 100, 50, label="Speed"
+            140, 1, 100, 50, label="Speed"
         )
-        x += slider_label_w + 100 + gap
+        x += slider_label_w + 140 + gap
 
         # Divider 2 position
         self.div2_x = x
@@ -90,7 +97,7 @@ class App:
         self.algo_group = ButtonGroup(
             x, btn_y + 1, algo_labels, self.font_small, active_index=0
         )
-        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(algo_labels) - 1)
+        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 4 * (len(algo_labels) - 1)
         x += algo_width + gap
 
         # Divider 3 position
@@ -170,11 +177,17 @@ class App:
     def update(self):
         viz = self.get_active_visualizer()
         if viz.is_running and not viz.is_complete:
+            # Exponential speed curve: 1000^(speed/100) ops per second
+            # speed  1 → ~1 op/s,  speed 50 → ~32 ops/s,  speed 100 → 1000 ops/s
             speed_val = self.speed_slider.get_value()
-            steps = max(1, int(speed_val / 5))
-            for _ in range(steps):
-                if viz.is_running and not viz.is_complete:
-                    viz.step()
+            dt = self.clock.get_time() / 1000.0
+            ops_per_second = 1000.0 ** (speed_val / 100.0)
+            self.step_accumulator += ops_per_second * dt
+            while self.step_accumulator >= 1.0 and viz.is_running and not viz.is_complete:
+                self.step_accumulator -= 1.0
+                viz.step()
+            # Cap accumulator to avoid burst after pause/lag
+            self.step_accumulator = min(self.step_accumulator, 5.0)
 
         # Update info panel stats
         if hasattr(viz, "get_status"):
@@ -184,18 +197,18 @@ class App:
                 viz.get_status()
             )
 
-        # Update start button text
+        # Update start button text (plain text, no unicode icons)
         if viz.is_running:
-            self.start_button.text = "\u23f8 Pause"
+            self.start_button.text = "Pause"
         else:
-            self.start_button.text = "\u25b6 Start"
+            self.start_button.text = "Start"
 
     def _draw_divider(self, x):
         """Draw a subtle vertical divider in the control bar."""
         pygame.draw.line(
             self.screen, (50, 50, 65),
-            (x, self.control_y + 14),
-            (x, self.control_y + CONTROL_PANEL_HEIGHT - 14), 1
+            (x, self.control_y + 16),
+            (x, self.control_y + CONTROL_PANEL_HEIGHT - 16), 1
         )
 
     def draw(self):
@@ -230,7 +243,7 @@ class App:
         self.size_group.draw(self.screen)
 
         # Keyboard hints (right-aligned in control bar)
-        hint = "SPACE / R"
+        hint = "SPACE: play/pause \u00b7 R: reset"
         hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
         hint_rect = hint_surf.get_rect(
             right=WINDOW_WIDTH - 12,

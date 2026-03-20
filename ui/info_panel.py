@@ -11,10 +11,10 @@ class InfoPanel:
         self.padding = 12
 
         # Fonts - created once
-        self.font_section = pygame.font.SysFont("Arial", 11)
-        self.font_title = pygame.font.SysFont("Arial", 18, bold=True)
-        self.font_stats = pygame.font.SysFont("Arial", 14)
-        self.font_label = pygame.font.SysFont("Arial", 12)
+        self.font_section = pygame.font.SysFont("Arial", 13)
+        self.font_title = pygame.font.SysFont("Arial", 22, bold=True)
+        self.font_stats = pygame.font.SysFont("Arial", 16)
+        self.font_label = pygame.font.SysFont("Arial", 14)
 
         # Algorithm info
         self.algo_name = ""
@@ -83,7 +83,7 @@ class InfoPanel:
         card_gap = 8
 
         # --- Card 1: Algorithm Info ---
-        card1_h = 140
+        card1_h = 170
         self._draw_card(surface, px, py, card_width, card1_h)
 
         cx = px + card_pad
@@ -92,12 +92,12 @@ class InfoPanel:
         # Section header
         header_surf = self.font_section.render("ALGORITHM", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 18
+        cy += 22
 
         # Algorithm name
         name_surf = self.font_title.render(self.algo_name, True, Colors.TEXT_PRIMARY)
         surface.blit(name_surf, (cx, cy))
-        cy += 26
+        cy += 30
 
         # Complexity rows (label: value)
         rows = [
@@ -111,13 +111,13 @@ class InfoPanel:
             label_surf = self.font_label.render(f"{label}:", True, Colors.TEXT_SECONDARY)
             value_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
             surface.blit(label_surf, (cx, cy))
-            surface.blit(value_surf, (cx + 52, cy))
-            cy += 16
+            surface.blit(value_surf, (cx + 60, cy))
+            cy += 19
 
         py += card1_h + card_gap
 
         # --- Card 2: Live Stats ---
-        card2_h = 100
+        card2_h = 116
         self._draw_card(surface, px, py, card_width, card2_h)
 
         cx = px + card_pad
@@ -125,15 +125,15 @@ class InfoPanel:
 
         header_surf = self.font_section.render("LIVE STATS", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 20
+        cy += 22
 
         comp_surf = self.font_stats.render(f"Comparisons:  {self.comparisons}", True, Colors.TEXT_PRIMARY)
         surface.blit(comp_surf, (cx, cy))
-        cy += 20
+        cy += 22
 
         swap_surf = self.font_stats.render(f"Swaps:  {self.swaps}", True, Colors.TEXT_PRIMARY)
         surface.blit(swap_surf, (cx, cy))
-        cy += 20
+        cy += 22
 
         # Status with colored value
         status_label = self.font_stats.render("Status:  ", True, Colors.TEXT_SECONDARY)
@@ -145,7 +145,7 @@ class InfoPanel:
 
         # --- Card 3: Color Legend ---
         legend_count = max(len(self.legend_items), 1)
-        card3_h = 24 + legend_count * 20 + 12
+        card3_h = 28 + legend_count * 22 + 14
         self._draw_card(surface, px, py, card_width, card3_h)
 
         cx = px + card_pad
@@ -153,9 +153,9 @@ class InfoPanel:
 
         header_surf = self.font_section.render("LEGEND", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 20
+        cy += 22
 
-        square_size = 14
+        square_size = 16
         for color, label in self.legend_items:
             pygame.draw.rect(
                 surface, color,
@@ -163,5 +163,5 @@ class InfoPanel:
                 border_radius=2
             )
             label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
-            surface.blit(label_surf, (cx + square_size + 8, cy + 1))
-            cy += 20
+            surface.blit(label_surf, (cx + square_size + 10, cy))
+            cy += 22

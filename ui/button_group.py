@@ -18,7 +18,7 @@ class ButtonGroup:
         for i, label in enumerate(labels):
             text_width = font.size(label)[0]
             btn_width = text_width + 24
-            btn = Button(current_x, y, btn_width, 30, label, font)
+            btn = Button(current_x, y, btn_width, 32, label, font)
             if i == active_index:
                 btn.is_active = True
             self.buttons.append(btn)
