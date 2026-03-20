@@ -15,8 +15,8 @@ class Slider:
         self.value = initial_val
         self.label = label
         self.dragging = False
-        self.knob_radius = 8
-        self.track_height = 6
+        self.knob_radius = 9
+        self.track_height = 7
 
     def _get_knob_x(self):
         """Calculate knob x position from current value."""
@@ -57,6 +57,13 @@ class Slider:
     def get_value(self):
         """Return current slider value."""
         return self.value
+
+    def set_position(self, x, y, width=None):
+        """Reposition the slider (used on window resize)."""
+        self.x = x
+        self.y = y
+        if width is not None:
+            self.width = width
 
     def draw(self, surface, font):
         """Draw track, fill, knob, and label."""

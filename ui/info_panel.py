@@ -1,19 +1,18 @@
-# ui/info_panel.py - Side panel showing algorithm info, stats, and legend
+# ui/info_panel.py - Side panel with card-based sections for AlgoFlow
 import pygame
 from config import Colors
 
 
 class InfoPanel:
-    """Vertical info panel on the right side of the canvas."""
+    """Polished info panel with card-style sections for algorithm info, stats, and legend."""
 
     def __init__(self, rect):
-        """rect defines the panel area."""
         self.rect = rect
-        self.padding = 16
-        self.border_color = (50, 50, 70)
+        self.padding = 12
 
-        # Fonts - created once, reused every frame
-        self.font_title = pygame.font.SysFont("Arial", 20, bold=True)
+        # Fonts - created once
+        self.font_section = pygame.font.SysFont("Arial", 13)
+        self.font_title = pygame.font.SysFont("Arial", 22, bold=True)
         self.font_stats = pygame.font.SysFont("Arial", 16)
         self.font_label = pygame.font.SysFont("Arial", 14)
 
@@ -34,7 +33,6 @@ class InfoPanel:
         self.legend_items = []
 
     def set_algorithm_info(self, name, time_best, time_avg, time_worst, space, stable):
-        """Update static algorithm info."""
         self.algo_name = name
         self.time_best = time_best
         self.time_avg = time_avg
@@ -43,17 +41,14 @@ class InfoPanel:
         self.stable = "Yes" if stable else "No"
 
     def set_stats(self, comparisons, swaps, status):
-        """Update live stats. Called every frame."""
         self.comparisons = comparisons
         self.swaps = swaps
         self.status = status
 
     def set_legend(self, legend_items):
-        """legend_items: list of (color_tuple, label_string)"""
         self.legend_items = legend_items
 
     def _get_status_color(self):
-        """Return color for the current status label."""
         status_colors = {
             "Ready": Colors.TEXT_ACCENT,
             "Running": Colors.BAR_SORTED,
@@ -62,76 +57,111 @@ class InfoPanel:
         }
         return status_colors.get(self.status, Colors.TEXT_PRIMARY)
 
+    def _draw_card(self, surface, x, y, width, height):
+        """Draw a card background with border radius."""
+        card_rect = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(surface, Colors.CARD_BG, card_rect, border_radius=8)
+        pygame.draw.rect(surface, Colors.CARD_BORDER, card_rect, width=1, border_radius=8)
+        return card_rect
+
     def draw(self, surface):
-        """Draw the panel and all sections."""
+        """Draw the panel and all card sections."""
         # Panel background
         pygame.draw.rect(surface, Colors.PANEL_BG, self.rect)
 
         # Left border
         pygame.draw.line(
-            surface, self.border_color,
+            surface, Colors.CARD_BORDER,
             (self.rect.x, self.rect.y),
             (self.rect.x, self.rect.bottom), 1
         )
 
-        x = self.rect.x + self.padding
-        y = self.rect.y + self.padding
-        max_width = self.rect.width - self.padding * 2
+        px = self.rect.x + self.padding
+        py = self.rect.y + self.padding
+        card_width = self.rect.width - self.padding * 2
+        card_pad = 12  # internal card padding
+        card_gap = 8
 
-        # Section 1: Algorithm Info
-        title_surf = self.font_title.render(self.algo_name, True, Colors.TEXT_PRIMARY)
-        surface.blit(title_surf, (x, y))
-        y += 30
+        # --- Card 1: Algorithm Info ---
+        card1_h = 170
+        self._draw_card(surface, px, py, card_width, card1_h)
 
-        info_lines = [
-            f"Best:    {self.time_best}",
-            f"Avg:     {self.time_avg}",
-            f"Worst:   {self.time_worst}",
-            f"Space:   {self.space}",
-            f"Stable:  {self.stable}",
+        cx = px + card_pad
+        cy = py + card_pad
+
+        # Section header
+        header_surf = self.font_section.render("ALGORITHM", True, Colors.TEXT_ACCENT)
+        surface.blit(header_surf, (cx, cy))
+        cy += 22
+
+        # Algorithm name
+        name_surf = self.font_title.render(self.algo_name, True, Colors.TEXT_PRIMARY)
+        surface.blit(name_surf, (cx, cy))
+        cy += 30
+
+        # Complexity rows (label: value)
+        rows = [
+            ("Best", self.time_best),
+            ("Avg", self.time_avg),
+            ("Worst", self.time_worst),
+            ("Space", self.space),
+            ("Stable", self.stable),
         ]
-        for line in info_lines:
-            surf = self.font_label.render(line, True, Colors.TEXT_SECONDARY)
-            surface.blit(surf, (x, y))
-            y += 20
+        for label, value in rows:
+            label_surf = self.font_label.render(f"{label}:", True, Colors.TEXT_SECONDARY)
+            value_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
+            surface.blit(label_surf, (cx, cy))
+            surface.blit(value_surf, (cx + 60, cy))
+            cy += 19
 
-        # Separator
-        y += 8
-        pygame.draw.line(surface, self.border_color, (x, y), (x + max_width, y), 1)
-        y += 12
+        py += card1_h + card_gap
 
-        # Section 2: Live Stats
-        header_surf = self.font_stats.render("LIVE STATS", True, Colors.TEXT_SECONDARY)
-        surface.blit(header_surf, (x, y))
-        y += 24
+        # --- Card 2: Live Stats ---
+        card2_h = 116
+        self._draw_card(surface, px, py, card_width, card2_h)
 
-        comp_surf = self.font_stats.render(f"Comparisons: {self.comparisons}", True, Colors.TEXT_PRIMARY)
-        surface.blit(comp_surf, (x, y))
-        y += 22
+        cx = px + card_pad
+        cy = py + card_pad
 
-        swap_surf = self.font_stats.render(f"Swaps: {self.swaps}", True, Colors.TEXT_PRIMARY)
-        surface.blit(swap_surf, (x, y))
-        y += 22
+        header_surf = self.font_section.render("LIVE STATS", True, Colors.TEXT_ACCENT)
+        surface.blit(header_surf, (cx, cy))
+        cy += 22
 
-        status_label = self.font_stats.render("Status: ", True, Colors.TEXT_SECONDARY)
-        surface.blit(status_label, (x, y))
+        comp_surf = self.font_stats.render(f"Comparisons:  {self.comparisons}", True, Colors.TEXT_PRIMARY)
+        surface.blit(comp_surf, (cx, cy))
+        cy += 22
+
+        swap_surf = self.font_stats.render(f"Swaps:  {self.swaps}", True, Colors.TEXT_PRIMARY)
+        surface.blit(swap_surf, (cx, cy))
+        cy += 22
+
+        # Status with colored value
+        status_label = self.font_stats.render("Status:  ", True, Colors.TEXT_SECONDARY)
+        surface.blit(status_label, (cx, cy))
         status_val = self.font_stats.render(self.status, True, self._get_status_color())
-        surface.blit(status_val, (x + status_label.get_width(), y))
-        y += 22
+        surface.blit(status_val, (cx + status_label.get_width(), cy))
 
-        # Separator
-        y += 8
-        pygame.draw.line(surface, self.border_color, (x, y), (x + max_width, y), 1)
-        y += 12
+        py += card2_h + card_gap
 
-        # Section 3: Color Legend
-        legend_header = self.font_stats.render("COLOR LEGEND", True, Colors.TEXT_SECONDARY)
-        surface.blit(legend_header, (x, y))
-        y += 24
+        # --- Card 3: Color Legend ---
+        legend_count = max(len(self.legend_items), 1)
+        card3_h = 28 + legend_count * 22 + 14
+        self._draw_card(surface, px, py, card_width, card3_h)
 
-        square_size = 12
+        cx = px + card_pad
+        cy = py + card_pad
+
+        header_surf = self.font_section.render("LEGEND", True, Colors.TEXT_ACCENT)
+        surface.blit(header_surf, (cx, cy))
+        cy += 22
+
+        square_size = 16
         for color, label in self.legend_items:
-            pygame.draw.rect(surface, color, (x, y + 1, square_size, square_size))
+            pygame.draw.rect(
+                surface, color,
+                (cx, cy + 1, square_size, square_size),
+                border_radius=2
+            )
             label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
-            surface.blit(label_surf, (x + square_size + 8, y))
-            y += 20
+            surface.blit(label_surf, (cx + square_size + 10, cy))
+            cy += 22

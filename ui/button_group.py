@@ -22,7 +22,7 @@ class ButtonGroup:
             if i == active_index:
                 btn.is_active = True
             self.buttons.append(btn)
-            current_x += btn_width + 4
+            current_x += btn_width + 3
 
     def handle_event(self, event):
         """Returns label string if selection changed, else None."""
@@ -34,6 +34,14 @@ class ButtonGroup:
                     btn.is_active = True
                     return self.labels[i]
         return None
+
+    def set_position(self, x, y):
+        """Reposition all buttons starting from (x, y)."""
+        current_x = x
+        for btn in self.buttons:
+            btn.rect.x = current_x
+            btn.rect.y = y
+            current_x += btn.rect.width + 3
 
     def get_active(self):
         """Return the currently active label."""

@@ -9,7 +9,8 @@ class PathfindingVisualizer(BaseVisualizer):
 
     def __init__(self, canvas_rect):
         super().__init__(canvas_rect)
-        self.font = pygame.font.SysFont("Arial", 28)
+        self.font_title = pygame.font.SysFont("Arial", 22)
+        self.font_sub = pygame.font.SysFont("Arial", 13)
 
     def reset(self):
         self.is_running = False
@@ -22,8 +23,18 @@ class PathfindingVisualizer(BaseVisualizer):
         pass
 
     def draw(self, surface):
-        text_surf = self.font.render(
-            "Pathfinding \u2014 Coming Soon", True, Colors.TEXT_SECONDARY
+        cx = self.canvas_rect.centerx
+        cy = self.canvas_rect.centery
+
+        # Dashed border hint
+        border = self.canvas_rect.inflate(-60, -60)
+        pygame.draw.rect(surface, Colors.CARD_BORDER, border, width=1, border_radius=12)
+
+        title_surf = self.font_title.render(
+            "Pathfinding", True, Colors.TEXT_PRIMARY
         )
-        text_rect = text_surf.get_rect(center=self.canvas_rect.center)
-        surface.blit(text_surf, text_rect)
+        sub_surf = self.font_sub.render(
+            "Coming Soon", True, Colors.TEXT_SECONDARY
+        )
+        surface.blit(title_surf, title_surf.get_rect(centerx=cx, centery=cy - 12))
+        surface.blit(sub_surf, sub_surf.get_rect(centerx=cx, centery=cy + 14))
