@@ -243,6 +243,8 @@ class App:
                         (new_w, new_h), pygame.RESIZABLE
                     )
                 self._rebuild_layout(new_w, new_h)
+                # DEV TOOL: print live dimensions to console
+                print(f"[AlgoFlow] Window size: {new_w} x {new_h}")
                 continue
 
             if event.type == pygame.KEYDOWN:
@@ -357,6 +359,13 @@ class App:
                 centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
             )
             self.screen.blit(hint_surf, hint_rect)
+
+        # DEV TOOL: render live dimensions in top-left corner
+        dim_text = f"{self.width} x {self.height}"
+        dim_surf = self.font_small.render(dim_text, True, (255, 200, 50))
+        dim_bg = pygame.Rect(4, HEADER_HEIGHT + 4, dim_surf.get_width() + 8, dim_surf.get_height() + 4)
+        pygame.draw.rect(self.screen, (0, 0, 0), dim_bg, border_radius=4)
+        self.screen.blit(dim_surf, (8, HEADER_HEIGHT + 6))
 
         pygame.display.flip()
 
