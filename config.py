@@ -86,6 +86,17 @@ class Colors:
     SLIDER_FILL = (60, 130, 200)
     SLIDER_KNOB = (220, 220, 230)
 
+    # Pointer labels (study mode)
+    POINTER_COLORS = {
+        "i": (100, 180, 230), "j": (100, 180, 230), "j+1": (100, 180, 230),
+        "min": (230, 70, 70), "key": (255, 200, 50), "pivot": (200, 100, 255),
+        "low": (50, 200, 100), "high": (230, 70, 70),
+        "k": (50, 200, 100), "L": (100, 200, 230), "R": (230, 100, 100),
+    }
+    POINTER_DEFAULT_COLOR = (140, 140, 160)
+    POINTER_TEXT_COLOR = (255, 255, 255)
+    SORTED_BOUNDARY_COLOR = (80, 200, 120)
+
 # Fonts (initialized after pygame.init())
 FONT_SIZES = {
     "tiny": 20,

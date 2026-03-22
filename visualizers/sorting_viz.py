@@ -1,6 +1,7 @@
 # visualizers/sorting_viz.py - Sorting algorithm visualizer for AlgoFlow
 import pygame
 import random
+from collections import defaultdict
 from visualizers.base import BaseVisualizer
 from config import Colors, BOX_MODE_THRESHOLD, DEFAULT_ARRAY_SIZE, FONT_FAMILY
 from algorithms.sorting import ALGORITHM_INFO
@@ -30,6 +31,10 @@ class SortingVisualizer(BaseVisualizer):
         self.current_status = ""
         self.current_pointers = {}
 
+        # Pointer pill cache (rebuilt per-step, not per-frame)
+        self._prev_pointers = None
+        self._cached_pills = []  # list of (surface, x, y)
+
         # Time-travel history: list of (array, colors, comparisons, swaps, status, pointers)
         self.history = []
         self.history_index = -1
@@ -38,6 +43,7 @@ class SortingVisualizer(BaseVisualizer):
         self.font_box_large = pygame.font.SysFont(FONT_FAMILY, 24, bold=True)
         self.font_box_small = pygame.font.SysFont(FONT_FAMILY, 20, bold=True)
         self.font_index = pygame.font.SysFont(FONT_FAMILY, 18)
+        self.font_pointer = pygame.font.SysFont(FONT_FAMILY, 16, bold=True)
 
         self.reset()
 
@@ -70,6 +76,8 @@ class SortingVisualizer(BaseVisualizer):
         self.generator = None
         self.current_status = ""
         self.current_pointers = {}
+        self._prev_pointers = None
+        self._cached_pills = []
         self.history = []
         self.history_index = -1
 
@@ -203,6 +211,98 @@ class SortingVisualizer(BaseVisualizer):
             return "Paused"
         return "Ready"
 
+    # --- Pointer pill labels (box mode only) ---
+
+    def _build_pointer_pills(self, index_to_x, index_to_top_y, element_width):
+        """Build cached pill badge surfaces for current pointers."""
+        # Group positional pointers by target index
+        groups = defaultdict(list)
+        for name, idx in self.current_pointers.items():
+            if name.startswith("_"):
+                continue  # skip value-type pointers
+            if idx in index_to_x:
+                groups[idx].append(name)
+
+        self._cached_pills = []
+        pill_h = 20
+        pill_pad = 8
+        pill_gap = 3
+
+        for idx, names in groups.items():
+            cx = index_to_x[idx] + element_width // 2
+            top_y = index_to_top_y[idx]
+
+            # Stack pills upward from above the box
+            for stack_i, name in enumerate(names):
+                color = Colors.POINTER_COLORS.get(name, Colors.POINTER_DEFAULT_COLOR)
+                text_surf = self.font_pointer.render(name, True, Colors.POINTER_TEXT_COLOR)
+                pill_w = text_surf.get_width() + pill_pad * 2
+
+                pill_surf = pygame.Surface((pill_w, pill_h), pygame.SRCALPHA)
+                pygame.draw.rect(pill_surf, color, (0, 0, pill_w, pill_h), border_radius=6)
+                pill_surf.blit(text_surf, (pill_pad, (pill_h - text_surf.get_height()) // 2))
+
+                px = cx - pill_w // 2
+                py = top_y - (stack_i + 1) * (pill_h + pill_gap)
+                self._cached_pills.append((pill_surf, px, py))
+
+        self._prev_pointers = dict(self.current_pointers)
+
+    def _draw_pointer_labels(self, surface, index_to_x, index_to_top_y, element_width):
+        """Draw pointer pill labels above boxes. Rebuilds cache only when pointers change."""
+        if not self.current_pointers:
+            self._cached_pills = []
+            self._prev_pointers = None
+            return
+
+        if self.current_pointers != self._prev_pointers:
+            self._build_pointer_pills(index_to_x, index_to_top_y, element_width)
+
+        for pill_surf, px, py in self._cached_pills:
+            surface.blit(pill_surf, (px, py))
+
+    # --- Sorted boundary line ---
+
+    def _draw_dashed_line(self, surface, x, y1, y2, color, dash_len=6, gap_len=4):
+        """Draw a vertical dashed line."""
+        y = y1
+        while y < y2:
+            end = min(y + dash_len, y2)
+            pygame.draw.line(surface, color, (x, y), (x, end), 2)
+            y += dash_len + gap_len
+
+    def _draw_sorted_boundary(self, surface, index_to_x, element_width, gap, y_top, y_bottom):
+        """Draw dashed boundary lines at the edges of sorted regions."""
+        n = len(self.bar_colors)
+        if n == 0:
+            return
+
+        # Left-anchored sorted region (Selection/Insertion sort)
+        left_sorted = 0
+        while left_sorted < n and self.bar_colors[left_sorted] == Colors.BAR_SORTED:
+            left_sorted += 1
+
+        # Right-anchored sorted region (Bubble sort)
+        right_sorted = n
+        while right_sorted > 0 and self.bar_colors[right_sorted - 1] == Colors.BAR_SORTED:
+            right_sorted -= 1
+
+        color = Colors.SORTED_BOUNDARY_COLOR
+
+        # Draw boundary after left sorted region (if partial, not all sorted)
+        if 0 < left_sorted < n and left_sorted in index_to_x:
+            bx = index_to_x[left_sorted] - gap // 2
+            self._draw_dashed_line(surface, bx, y_top, y_bottom, color)
+
+        # Draw boundary before right sorted region (if partial, not all sorted)
+        if 0 < right_sorted < n and right_sorted - 1 in index_to_x:
+            bx = index_to_x[right_sorted - 1] + element_width + gap // 2
+            # Avoid drawing on top of left boundary
+            if not (0 < left_sorted < n and left_sorted >= right_sorted):
+                self._draw_dashed_line(surface, bx, y_top, y_bottom, color)
+
+    # --- Drawing methods ---
+
     def _draw_boxes(self, surface):
         """Draw array as horizontal row of boxes with values."""
         n = self.array_size
@@ -214,8 +314,6 @@ class SortingVisualizer(BaseVisualizer):
         box_size = min(78, (available_width - (n - 1) * gap) // n)
 
         if box_size < min_box:
-            # UX tradeoff: boxes would be too small to read at this width,
-            # so we fall back to bar mode which scales gracefully to any width.
             self._draw_bars(surface)
             return
 
@@ -225,15 +323,22 @@ class SortingVisualizer(BaseVisualizer):
         elif box_size >= 36:
             font = self.font_box_small
         else:
-            font = None  # too small for text — just colored boxes
+            font = None
 
         total_width = n * box_size + (n - 1) * gap
         start_x = self.canvas_rect.x + (self.canvas_rect.width - total_width) // 2
         center_y = self.canvas_rect.y + self.canvas_rect.height // 2 - 15
 
+        # Build index-to-position maps for pointer labels and boundary
+        index_to_x = {}
+        index_to_top_y = {}
+
         for i, (val, color) in enumerate(zip(self.array, self.bar_colors)):
             x = start_x + i * (box_size + gap)
             y = center_y - box_size // 2
+
+            index_to_x[i] = x
+            index_to_top_y[i] = y
 
             box_rect = pygame.Rect(x, y, box_size, box_size)
 
@@ -254,6 +359,14 @@ class SortingVisualizer(BaseVisualizer):
             idx_rect = idx_surf.get_rect(centerx=box_rect.centerx, top=box_rect.bottom + 6)
             surface.blit(idx_surf, idx_rect)
 
+        # Pointer labels above boxes
+        self._draw_pointer_labels(surface, index_to_x, index_to_top_y, box_size)
+
+        # Sorted boundary
+        y_top = center_y - box_size // 2 - 5
+        y_bottom = center_y + box_size // 2 + 30
+        self._draw_sorted_boundary(surface, index_to_x, box_size, gap, y_top, y_bottom)
+
     def _draw_bars(self, surface):
         """Draw array as vertical bars."""
         padding = 24
@@ -268,13 +381,23 @@ class SortingVisualizer(BaseVisualizer):
         total_bars_width = self.array_size * (bar_width + 1)
         start_x = self.canvas_rect.x + (self.canvas_rect.width - total_bars_width) // 2
 
+        index_to_x = {}
+        bar_gap = 1
+
         for i, (val, color) in enumerate(zip(self.array, self.bar_colors)):
             bar_height = max(1, int((val / max_val) * available_height))
             x = start_x + i * (bar_width + 1)
             y = self.canvas_rect.y + self.canvas_rect.height - 30 - bar_height
 
+            index_to_x[i] = x
+
             rect = pygame.Rect(x, y, bar_width, bar_height)
             pygame.draw.rect(surface, color, rect, border_radius=2)
+
+        # Sorted boundary (no pointer labels in bar mode)
+        y_top = self.canvas_rect.y + 20
+        y_bottom = self.canvas_rect.y + self.canvas_rect.height - 25
+        self._draw_sorted_boundary(surface, index_to_x, bar_width, bar_gap, y_top, y_bottom)
 
     def draw(self, surface):
         """Draw the array using box or bar mode."""
