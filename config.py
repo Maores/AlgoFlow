@@ -16,10 +16,10 @@ INFO_PANEL_WIDTH = 450
 # Visualization
 BOX_MODE_THRESHOLD = 30
 DEFAULT_ARRAY_SIZE = 20
-SIZE_OPTIONS = ["10", "20", "30", "50", "100"]
+SIZE_OPTIONS = ["10", "20", "30"]
 
 # Speed control
-BASE_SPEED = 30  # base operations per second at 1x (slider range: 0.1x–2.0x)
+BASE_SPEED = 15  # base operations per second at 1x (slider range: 0.1x–4.0x)
 
 # Colors (RGB tuples)
 class Colors:

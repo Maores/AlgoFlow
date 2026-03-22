@@ -81,9 +81,9 @@ class App:
         # Reset button
         self.reset_button = Button(174, btn_y, 114, btn_h, "Reset", self.font_small)
 
-        # Speed slider (continuous 0.1x–2.0x range)
+        # Speed slider (continuous 0.1x–4.0x range)
         self.speed_slider = Slider(
-            0, 0, 180, min_val=0.1, max_val=2.0, initial_val=1.0, label="Speed:"
+            0, 0, 180, min_val=0.1, max_val=4.0, initial_val=1.0, label="Speed:"
         )
 
         # Algorithm selector
