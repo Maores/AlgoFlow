@@ -1,6 +1,6 @@
 # ui/tab_bar.py - Header bar with AlgoFlow branding and tab navigation
 import pygame
-from config import Colors, TABS, HEADER_HEIGHT, TITLE
+from config import Colors, TABS, HEADER_HEIGHT, TITLE, FONT_FAMILY
 
 
 class TabBar:
@@ -13,8 +13,8 @@ class TabBar:
         self.hover_tab = -1
 
         # Fonts - created once
-        self.font_brand = pygame.font.SysFont("Arial", 22, bold=True)
-        self.font_tab = pygame.font.SysFont("Arial", 16)
+        self.font_brand = pygame.font.SysFont(FONT_FAMILY, 22, bold=True)
+        self.font_tab = pygame.font.SysFont(FONT_FAMILY, 16)
 
         # Brand area
         self.brand_x = 16

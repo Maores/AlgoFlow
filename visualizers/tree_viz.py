@@ -1,7 +1,7 @@
 # visualizers/tree_viz.py - Tree visualizer placeholder
 import pygame
 from visualizers.base import BaseVisualizer
-from config import Colors
+from config import Colors, FONT_FAMILY
 
 
 class TreeVisualizer(BaseVisualizer):
@@ -9,8 +9,8 @@ class TreeVisualizer(BaseVisualizer):
 
     def __init__(self, canvas_rect):
         super().__init__(canvas_rect)
-        self.font_title = pygame.font.SysFont("Arial", 22)
-        self.font_sub = pygame.font.SysFont("Arial", 13)
+        self.font_title = pygame.font.SysFont(FONT_FAMILY, 22)
+        self.font_sub = pygame.font.SysFont(FONT_FAMILY, 13)
 
     def reset(self):
         self.is_running = False

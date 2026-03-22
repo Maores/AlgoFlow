@@ -1,6 +1,6 @@
 # ui/info_panel.py - Side panel with card-based sections for AlgoFlow
 import pygame
-from config import Colors
+from config import Colors, FONT_FAMILY
 
 
 class InfoPanel:
@@ -11,10 +11,10 @@ class InfoPanel:
         self.padding = 12
 
         # Fonts - created once
-        self.font_section = pygame.font.SysFont("Arial", 13)
-        self.font_title = pygame.font.SysFont("Arial", 22, bold=True)
-        self.font_stats = pygame.font.SysFont("Arial", 16)
-        self.font_label = pygame.font.SysFont("Arial", 14)
+        self.font_section = pygame.font.SysFont(FONT_FAMILY, 13)
+        self.font_title = pygame.font.SysFont(FONT_FAMILY, 22, bold=True)
+        self.font_stats = pygame.font.SysFont(FONT_FAMILY, 16)
+        self.font_label = pygame.font.SysFont(FONT_FAMILY, 14)
 
         # Algorithm info
         self.algo_name = ""

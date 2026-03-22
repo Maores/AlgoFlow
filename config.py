@@ -6,6 +6,7 @@ WINDOW_WIDTH = 1250
 WINDOW_HEIGHT = 650
 FPS = 60
 TITLE = "AlgoFlow"
+FONT_FAMILY = "Segoe UI, Roboto, Arial"
 
 # Layout
 HEADER_HEIGHT = 48

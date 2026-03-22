@@ -1,9 +1,17 @@
 # main.py - AlgoFlow
 # Entry point with game loop, tab switching, control bar, and event handling
+
+# Enable Windows High DPI awareness so the OS renders at native resolution
+try:
+    import ctypes
+    ctypes.windll.user32.SetProcessDPIAware()
+except (AttributeError, OSError):
+    pass  # Not on Windows — no action needed
+
 import pygame
 import sys
 from config import (
-    WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE,
+    WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE, FONT_FAMILY,
     HEADER_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH,
     SIZE_OPTIONS, DEFAULT_ARRAY_SIZE,
     SPEED_OPTIONS, SPEED_MULTIPLIERS, BASE_SPEED,
@@ -36,8 +44,8 @@ class App:
         self.step_accumulator = 0.0
 
         # Fonts - created once
-        self.font_small = pygame.font.SysFont("Arial", 15)
-        self.font_hint = pygame.font.SysFont("Arial", 13)
+        self.font_small = pygame.font.SysFont(FONT_FAMILY, 15)
+        self.font_hint = pygame.font.SysFont(FONT_FAMILY, 13)
 
         # Header with branding + tabs
         self.tab_bar = TabBar(WINDOW_WIDTH)

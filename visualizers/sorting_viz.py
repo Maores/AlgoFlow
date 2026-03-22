@@ -2,7 +2,7 @@
 import pygame
 import random
 from visualizers.base import BaseVisualizer
-from config import Colors, BOX_MODE_THRESHOLD, DEFAULT_ARRAY_SIZE
+from config import Colors, BOX_MODE_THRESHOLD, DEFAULT_ARRAY_SIZE, FONT_FAMILY
 from algorithms.sorting import ALGORITHM_INFO
 
 
@@ -27,9 +27,9 @@ class SortingVisualizer(BaseVisualizer):
         self.generator = None
 
         # Fonts created once, reused every frame
-        self.font_box_large = pygame.font.SysFont("Arial", 16, bold=True)
-        self.font_box_small = pygame.font.SysFont("Arial", 13, bold=True)
-        self.font_index = pygame.font.SysFont("Arial", 12)
+        self.font_box_large = pygame.font.SysFont(FONT_FAMILY, 16, bold=True)
+        self.font_box_small = pygame.font.SysFont(FONT_FAMILY, 13, bold=True)
+        self.font_index = pygame.font.SysFont(FONT_FAMILY, 12)
 
         self.reset()
 
