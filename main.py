@@ -1,17 +1,16 @@
 # main.py - AlgoFlow
 # Entry point with game loop, tab switching, control bar, and event handling
-import math
 import pygame
 import sys
 from config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE,
     HEADER_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH,
-    MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT,
-    SIZE_OPTIONS, DEFAULT_ARRAY_SIZE, Colors
+    SIZE_OPTIONS, DEFAULT_ARRAY_SIZE,
+    SPEED_OPTIONS, SPEED_MULTIPLIERS, BASE_SPEED,
+    Colors
 )
 from ui.tab_bar import TabBar
 from ui.button import Button
-from ui.slider import Slider
 from ui.button_group import ButtonGroup
 from ui.info_panel import InfoPanel
 from visualizers.sorting_viz import SortingVisualizer
@@ -74,12 +73,9 @@ class App:
         # Reset button
         self.reset_button = Button(116, btn_y, 76, btn_h, "Reset", self.font_small)
 
-        # Speed slider
-        slider_label_w = self.font_small.size("Speed")[0] + 8
-        self.speed_slider = Slider(
-            206 + slider_label_w,
-            control_y + CONTROL_PANEL_HEIGHT // 2,
-            140, 1, 100, 50, label="Speed"
+        # Speed selector (discrete multipliers replace continuous slider)
+        self.speed_group = ButtonGroup(
+            0, btn_y + 1, SPEED_OPTIONS, self.font_small, active_index=1
         )
 
         # Algorithm selector
@@ -114,6 +110,43 @@ class App:
 
         self.running = True
 
+    def _get_min_required_width(self):
+        """Dynamically calculate the minimum window width from actual component widths.
+
+        Sums all control bar elements (buttons, groups, labels, gaps) plus the
+        info panel width. No hardcoded pixel constants — adapts automatically
+        if fonts, labels, or components change.
+        """
+        gap = 14
+        x = 14  # left margin
+        x += self.start_button.rect.width + 6
+        x += self.reset_button.rect.width + gap
+        # divider + gap
+        x += gap
+        # "Speed:" label + speed button group
+        speed_label_w = self.font_small.size("Speed:")[0] + 8
+        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 3 * (len(self.speed_group.buttons) - 1)
+        x += speed_label_w + speed_group_w + gap
+        # divider + gap
+        x += gap
+        # algorithm button group
+        algo_w = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(self.algo_group.buttons) - 1)
+        x += algo_w + gap
+        # divider + gap
+        x += gap
+        # size button group
+        size_w = sum(b.rect.width for b in self.size_group.buttons) + 3 * (len(self.size_group.buttons) - 1)
+        x += size_w + 14  # right margin
+        return x + INFO_PANEL_WIDTH
+
+    def _get_min_required_height(self):
+        """Dynamically calculate the minimum window height.
+
+        Ensures header + control panel + a minimal canvas area are always visible.
+        """
+        min_canvas = 100
+        return HEADER_HEIGHT + CONTROL_PANEL_HEIGHT + min_canvas
+
     def _rebuild_layout(self, w, h):
         """Recalculate all layout positions for the given window dimensions."""
         self.width = w
@@ -138,7 +171,7 @@ class App:
         # Tab bar
         self.tab_bar.resize(w)
 
-        # Control bar — anchored to bottom, never above header
+        # Control bar — anchored relative to window bottom
         control_y = max(HEADER_HEIGHT, h - CONTROL_PANEL_HEIGHT)
         self.control_y = control_y
         btn_h = 34
@@ -146,7 +179,7 @@ class App:
         gap = 14
         x = 14
 
-        # Reposition control bar components
+        # Reposition control bar components sequentially (x-accumulation)
         self.start_button.rect.topleft = (x, btn_y)
         x += self.start_button.rect.width + 6
 
@@ -156,18 +189,19 @@ class App:
         self.div1_x = x
         x += gap
 
-        slider_label_w = self.font_small.size("Speed")[0] + 8
-        self.speed_slider.set_position(
-            x + slider_label_w,
-            control_y + CONTROL_PANEL_HEIGHT // 2
-        )
-        x += slider_label_w + 140 + gap
+        # "Speed:" label position stored for draw(), then speed button group
+        self.speed_label_x = x
+        speed_label_w = self.font_small.size("Speed:")[0] + 8
+        x += speed_label_w
+        self.speed_group.set_position(x, btn_y + 1)
+        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 3 * (len(self.speed_group.buttons) - 1)
+        x += speed_group_w + gap
 
         self.div2_x = x
         x += gap
 
         self.algo_group.set_position(x, btn_y + 1)
-        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 4 * (len(self.algo_group.labels) - 1)
+        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(self.algo_group.buttons) - 1)
         x += algo_width + gap
 
         self.div3_x = x
@@ -199,8 +233,10 @@ class App:
                 return
 
             if event.type == pygame.VIDEORESIZE:
-                new_w = max(event.w, MIN_WINDOW_WIDTH)
-                new_h = max(event.h, MIN_WINDOW_HEIGHT)
+                min_w = self._get_min_required_width()
+                min_h = self._get_min_required_height()
+                new_w = max(event.w, min_w)
+                new_h = max(event.h, min_h)
                 # Only re-set_mode if clamping changed the size (avoids resize loop)
                 if new_w != event.w or new_h != event.h:
                     self.screen = pygame.display.set_mode(
@@ -228,7 +264,7 @@ class App:
             if self.reset_button.handle_event(event):
                 viz.reset()
 
-            self.speed_slider.handle_event(event)
+            self.speed_group.handle_event(event)
 
             algo_change = self.algo_group.handle_event(event)
             if algo_change and hasattr(viz, "set_algorithm"):
@@ -244,11 +280,10 @@ class App:
     def update(self):
         viz = self.get_active_visualizer()
         if viz.is_running and not viz.is_complete:
-            # Exponential speed curve: 1000^(speed/100) ops per second
-            # speed  1 → ~1 op/s,  speed 50 → ~32 ops/s,  speed 100 → 1000 ops/s
-            speed_val = self.speed_slider.get_value()
+            # Discrete speed: BASE_SPEED * selected multiplier
+            multiplier = SPEED_MULTIPLIERS.get(self.speed_group.get_active(), 1.0)
             dt = self.clock.get_time() / 1000.0
-            ops_per_second = 1000.0 ** (speed_val / 100.0)
+            ops_per_second = BASE_SPEED * multiplier
             self.step_accumulator += ops_per_second * dt
             while self.step_accumulator >= 1.0 and viz.is_running and not viz.is_complete:
                 self.step_accumulator -= 1.0
@@ -290,8 +325,8 @@ class App:
         # Info panel
         self.info_panel.draw(self.screen)
 
-        # Control bar background
-        control_rect = pygame.Rect(0, self.control_y, self.width, CONTROL_PANEL_HEIGHT)
+        # Control bar background — extends from control_y to window bottom
+        control_rect = pygame.Rect(0, self.control_y, self.width, self.height - self.control_y)
         pygame.draw.rect(self.screen, Colors.PANEL_BG, control_rect)
         # Top border
         pygame.draw.line(
@@ -303,7 +338,10 @@ class App:
         self.start_button.draw(self.screen)
         self.reset_button.draw(self.screen)
         self._draw_divider(self.div1_x)
-        self.speed_slider.draw(self.screen, self.font_small)
+        # Speed label + discrete button group
+        speed_label = self.font_small.render("Speed:", True, Colors.TEXT_SECONDARY)
+        self.screen.blit(speed_label, (self.speed_label_x, self.control_y + (CONTROL_PANEL_HEIGHT - speed_label.get_height()) // 2))
+        self.speed_group.draw(self.screen)
         self._draw_divider(self.div2_x)
         self.algo_group.draw(self.screen)
         self._draw_divider(self.div3_x)

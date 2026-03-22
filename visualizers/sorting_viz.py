@@ -127,12 +127,16 @@ class SortingVisualizer(BaseVisualizer):
         n = self.array_size
         padding = 28
         available_width = self.canvas_rect.width - 2 * padding
-        if available_width < n * 4:
-            return  # canvas too narrow to draw anything meaningful
 
-        # Adaptive box sizing — floor of 8px prevents overlapping illegible boxes
         gap = 4
-        box_size = max(8, min(52, (available_width - (n - 1) * gap) // n))
+        min_box = 16  # minimum readable box width
+        box_size = min(52, (available_width - (n - 1) * gap) // n)
+
+        if box_size < min_box:
+            # UX tradeoff: boxes would be too small to read at this width,
+            # so we fall back to bar mode which scales gracefully to any width.
+            self._draw_bars(surface)
+            return
 
         # Adaptive font: large for roomy boxes, small for compact, none if too tight
         if box_size >= 40:
