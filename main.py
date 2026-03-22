@@ -296,12 +296,14 @@ class App:
         self.info_panel.draw(self.screen)
 
         # Control bar background — extends from control_y to window bottom
-        control_rect = pygame.Rect(0, self.control_y, self.width, self.height - self.control_y)
+        screen_w = self.screen.get_width()
+        screen_h = self.screen.get_height()
+        control_rect = pygame.Rect(0, self.control_y, screen_w, screen_h - self.control_y)
         pygame.draw.rect(self.screen, Colors.PANEL_BG, control_rect)
         # Top border
         pygame.draw.line(
             self.screen, (40, 40, 55),
-            (0, self.control_y), (self.width, self.control_y), 1
+            (0, self.control_y), (screen_w, self.control_y), 1
         )
 
         # Control bar components
