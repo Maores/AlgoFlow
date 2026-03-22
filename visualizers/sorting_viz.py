@@ -27,9 +27,9 @@ class SortingVisualizer(BaseVisualizer):
         self.generator = None
 
         # Fonts created once, reused every frame
-        self.font_box_large = pygame.font.SysFont(FONT_FAMILY, 16, bold=True)
-        self.font_box_small = pygame.font.SysFont(FONT_FAMILY, 13, bold=True)
-        self.font_index = pygame.font.SysFont(FONT_FAMILY, 12)
+        self.font_box_large = pygame.font.SysFont(FONT_FAMILY, 24, bold=True)
+        self.font_box_small = pygame.font.SysFont(FONT_FAMILY, 20, bold=True)
+        self.font_index = pygame.font.SysFont(FONT_FAMILY, 18)
 
         self.reset()
 
@@ -125,12 +125,12 @@ class SortingVisualizer(BaseVisualizer):
     def _draw_boxes(self, surface):
         """Draw array as horizontal row of boxes with values."""
         n = self.array_size
-        padding = 28
+        padding = 42
         available_width = self.canvas_rect.width - 2 * padding
 
-        gap = 4
-        min_box = 16  # minimum readable box width
-        box_size = min(52, (available_width - (n - 1) * gap) // n)
+        gap = 6
+        min_box = 24  # minimum readable box width
+        box_size = min(78, (available_width - (n - 1) * gap) // n)
 
         if box_size < min_box:
             # UX tradeoff: boxes would be too small to read at this width,
@@ -139,16 +139,16 @@ class SortingVisualizer(BaseVisualizer):
             return
 
         # Adaptive font: large for roomy boxes, small for compact, none if too tight
-        if box_size >= 40:
+        if box_size >= 60:
             font = self.font_box_large
-        elif box_size >= 24:
+        elif box_size >= 36:
             font = self.font_box_small
         else:
             font = None  # too small for text — just colored boxes
 
         total_width = n * box_size + (n - 1) * gap
         start_x = self.canvas_rect.x + (self.canvas_rect.width - total_width) // 2
-        center_y = self.canvas_rect.y + self.canvas_rect.height // 2 - 10
+        center_y = self.canvas_rect.y + self.canvas_rect.height // 2 - 15
 
         for i, (val, color) in enumerate(zip(self.array, self.bar_colors)):
             x = start_x + i * (box_size + gap)
@@ -157,10 +157,10 @@ class SortingVisualizer(BaseVisualizer):
             box_rect = pygame.Rect(x, y, box_size, box_size)
 
             # Box background
-            pygame.draw.rect(surface, Colors.BOX_BG, box_rect, border_radius=4)
+            pygame.draw.rect(surface, Colors.BOX_BG, box_rect, border_radius=6)
 
-            # Colored border (2px)
-            pygame.draw.rect(surface, color, box_rect, width=2, border_radius=4)
+            # Colored border (3px)
+            pygame.draw.rect(surface, color, box_rect, width=3, border_radius=6)
 
             # Value text centered in box (only if box is large enough)
             if font is not None:
@@ -170,18 +170,18 @@ class SortingVisualizer(BaseVisualizer):
 
             # Index below box
             idx_surf = self.font_index.render(str(i), True, Colors.TEXT_SECONDARY)
-            idx_rect = idx_surf.get_rect(centerx=box_rect.centerx, top=box_rect.bottom + 4)
+            idx_rect = idx_surf.get_rect(centerx=box_rect.centerx, top=box_rect.bottom + 6)
             surface.blit(idx_surf, idx_rect)
 
     def _draw_bars(self, surface):
         """Draw array as vertical bars."""
-        padding = 16
+        padding = 24
         available_width = self.canvas_rect.width - 2 * padding
-        available_height = self.canvas_rect.height - 40
+        available_height = self.canvas_rect.height - 60
         if available_width < 1 or available_height < 1:
             return  # canvas too small to draw
 
-        bar_width = max(2, available_width // self.array_size - 1)
+        bar_width = max(3, available_width // self.array_size - 1)
         max_val = max(self.array) if self.array else 1
 
         total_bars_width = self.array_size * (bar_width + 1)
@@ -190,10 +190,10 @@ class SortingVisualizer(BaseVisualizer):
         for i, (val, color) in enumerate(zip(self.array, self.bar_colors)):
             bar_height = max(1, int((val / max_val) * available_height))
             x = start_x + i * (bar_width + 1)
-            y = self.canvas_rect.y + self.canvas_rect.height - 20 - bar_height
+            y = self.canvas_rect.y + self.canvas_rect.height - 30 - bar_height
 
             rect = pygame.Rect(x, y, bar_width, bar_height)
-            pygame.draw.rect(surface, color, rect, border_radius=1)
+            pygame.draw.rect(surface, color, rect, border_radius=2)
 
     def draw(self, surface):
         """Draw the array using box or bar mode."""

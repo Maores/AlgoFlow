@@ -13,11 +13,11 @@ class TabBar:
         self.hover_tab = -1
 
         # Fonts - created once
-        self.font_brand = pygame.font.SysFont(FONT_FAMILY, 22, bold=True)
-        self.font_tab = pygame.font.SysFont(FONT_FAMILY, 16)
+        self.font_brand = pygame.font.SysFont(FONT_FAMILY, 33, bold=True)
+        self.font_tab = pygame.font.SysFont(FONT_FAMILY, 24)
 
         # Brand area
-        self.brand_x = 16
+        self.brand_x = 24
 
         # Build tab rects (pill-style, right-aligned)
         self.tab_rects = []
@@ -25,13 +25,13 @@ class TabBar:
 
     def _build_tabs(self):
         """Calculate pill-style tab positions, starting after brand area."""
-        tab_padding_h = 16  # horizontal padding inside each tab
-        tab_height = 34
-        tab_gap = 6
+        tab_padding_h = 24  # horizontal padding inside each tab
+        tab_height = 51
+        tab_gap = 9
         tab_y = (HEADER_HEIGHT - tab_height) // 2
 
         # Start tabs at x=140 (after brand)
-        x = 140
+        x = 210
         self.tab_rects = []
         for tab_name in self.tabs:
             text_w = self.font_tab.size(tab_name)[0]
@@ -92,7 +92,7 @@ class TabBar:
                 bg = Colors.TAB_INACTIVE
                 text_color = Colors.TAB_TEXT
 
-            pygame.draw.rect(surface, bg, rect, border_radius=6)
+            pygame.draw.rect(surface, bg, rect, border_radius=9)
 
             text_surf = self.font_tab.render(tab_name, True, text_color)
             text_rect = text_surf.get_rect(center=rect.center)

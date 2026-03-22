@@ -39,7 +39,7 @@ class Button:
         else:
             color = self.bg_color
         
-        pygame.draw.rect(surface, color, self.rect, border_radius=6)
+        pygame.draw.rect(surface, color, self.rect, border_radius=9)
         
         if self.font:
             text_surf = self.font.render(self.text, True, self.text_color)

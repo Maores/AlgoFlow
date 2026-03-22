@@ -17,12 +17,12 @@ class ButtonGroup:
         current_x = x
         for i, label in enumerate(labels):
             text_width = font.size(label)[0]
-            btn_width = text_width + 24
-            btn = Button(current_x, y, btn_width, 32, label, font)
+            btn_width = text_width + 56
+            btn = Button(current_x, y, btn_width, 48, label, font)
             if i == active_index:
                 btn.is_active = True
             self.buttons.append(btn)
-            current_x += btn_width + 3
+            current_x += btn_width + 5
 
     def handle_event(self, event):
         """Returns label string if selection changed, else None."""
@@ -41,7 +41,7 @@ class ButtonGroup:
         for btn in self.buttons:
             btn.rect.x = current_x
             btn.rect.y = y
-            current_x += btn.rect.width + 3
+            current_x += btn.rect.width + 5
 
     def get_active(self):
         """Return the currently active label."""

@@ -44,8 +44,8 @@ class App:
         self.step_accumulator = 0.0
 
         # Fonts - created once
-        self.font_small = pygame.font.SysFont(FONT_FAMILY, 15)
-        self.font_hint = pygame.font.SysFont(FONT_FAMILY, 13)
+        self.font_small = pygame.font.SysFont(FONT_FAMILY, 23)
+        self.font_hint = pygame.font.SysFont(FONT_FAMILY, 20)
 
         # Header with branding + tabs
         self.tab_bar = TabBar(WINDOW_WIDTH)
@@ -72,14 +72,14 @@ class App:
 
         # --- Control bar components (created once, repositioned by _rebuild_layout) ---
         control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
-        btn_h = 34
+        btn_h = 51
         btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
 
         # Start/Pause button (no unicode icons — avoids glyph rendering artifacts)
-        self.start_button = Button(14, btn_y, 96, btn_h, "Start", self.font_small)
+        self.start_button = Button(21, btn_y, 144, btn_h, "Start", self.font_small)
 
         # Reset button
-        self.reset_button = Button(116, btn_y, 76, btn_h, "Reset", self.font_small)
+        self.reset_button = Button(174, btn_y, 114, btn_h, "Reset", self.font_small)
 
         # Speed selector (discrete multipliers replace continuous slider)
         self.speed_group = ButtonGroup(
@@ -145,14 +145,14 @@ class App:
         # Control bar — anchored relative to window bottom
         control_y = max(HEADER_HEIGHT, h - CONTROL_PANEL_HEIGHT)
         self.control_y = control_y
-        btn_h = 34
+        btn_h = 51
         btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
-        gap = 14
-        x = 14
+        gap = 21
+        x = 21
 
         # Reposition control bar components sequentially (x-accumulation)
         self.start_button.rect.topleft = (x, btn_y)
-        x += self.start_button.rect.width + 6
+        x += self.start_button.rect.width + 9
 
         self.reset_button.rect.topleft = (x, btn_y)
         x += self.reset_button.rect.width + gap
@@ -162,17 +162,17 @@ class App:
 
         # "Speed:" label position stored for draw(), then speed button group
         self.speed_label_x = x
-        speed_label_w = self.font_small.size("Speed:")[0] + 8
+        speed_label_w = self.font_small.size("Speed:")[0] + 12
         x += speed_label_w
         self.speed_group.set_position(x, btn_y + 1)
-        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 3 * (len(self.speed_group.buttons) - 1)
+        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 5 * (len(self.speed_group.buttons) - 1)
         x += speed_group_w + gap
 
         self.div2_x = x
         x += gap
 
         self.algo_group.set_position(x, btn_y + 1)
-        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(self.algo_group.buttons) - 1)
+        algo_width = sum(b.rect.width for b in self.algo_group.buttons) + 5 * (len(self.algo_group.buttons) - 1)
         x += algo_width + gap
 
         self.div3_x = x
@@ -267,8 +267,8 @@ class App:
         """Draw a subtle vertical divider in the control bar."""
         pygame.draw.line(
             self.screen, (50, 50, 65),
-            (x, self.control_y + 16),
-            (x, self.control_y + CONTROL_PANEL_HEIGHT - 16), 1
+            (x, self.control_y + 24),
+            (x, self.control_y + CONTROL_PANEL_HEIGHT - 24), 1
         )
 
     def draw(self):
@@ -308,10 +308,10 @@ class App:
         # Keyboard hints (right-aligned, only if space permits)
         hint = "SPACE: play/pause \u00b7 R: reset"
         hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
-        hint_x = self.width - 12 - hint_surf.get_width()
-        if hint_x > self.control_content_right + 16:
+        hint_x = self.width - 18 - hint_surf.get_width()
+        if hint_x > self.control_content_right + 24:
             hint_rect = hint_surf.get_rect(
-                right=self.width - 12,
+                right=self.width - 18,
                 centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
             )
             self.screen.blit(hint_surf, hint_rect)

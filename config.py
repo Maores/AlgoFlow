@@ -2,16 +2,16 @@
 # All colors, sizes, and constants in one place
 
 # Window
-WINDOW_WIDTH = 1250
-WINDOW_HEIGHT = 650
+WINDOW_WIDTH = 1875
+WINDOW_HEIGHT = 975
 FPS = 60
 TITLE = "AlgoFlow"
 FONT_FAMILY = "Segoe UI, Roboto, Arial"
 
 # Layout
-HEADER_HEIGHT = 48
-CONTROL_PANEL_HEIGHT = 64
-INFO_PANEL_WIDTH = 300
+HEADER_HEIGHT = 72
+CONTROL_PANEL_HEIGHT = 96
+INFO_PANEL_WIDTH = 450
 
 # Visualization
 BOX_MODE_THRESHOLD = 30
@@ -90,12 +90,12 @@ class Colors:
 
 # Fonts (initialized after pygame.init())
 FONT_SIZES = {
-    "tiny": 13,
-    "small": 15,
-    "medium": 20,
-    "large": 24,
-    "title": 28,
-    "brand": 22,
+    "tiny": 20,
+    "small": 23,
+    "medium": 30,
+    "large": 36,
+    "title": 42,
+    "brand": 33,
 }
 
 # Tabs
