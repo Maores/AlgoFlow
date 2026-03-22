@@ -2,8 +2,8 @@
 # All colors, sizes, and constants in one place
 
 # Window
-WINDOW_WIDTH = 1280
-WINDOW_HEIGHT = 720
+WINDOW_WIDTH = 1250
+WINDOW_HEIGHT = 650
 FPS = 60
 TITLE = "AlgoFlow"
 

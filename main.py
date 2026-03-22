@@ -25,7 +25,7 @@ class App:
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode(
-            (WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE
+            (WINDOW_WIDTH, WINDOW_HEIGHT)
         )
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
@@ -109,43 +109,6 @@ class App:
         ])
 
         self.running = True
-
-    def _get_min_required_width(self):
-        """Dynamically calculate the minimum window width from actual component widths.
-
-        Sums all control bar elements (buttons, groups, labels, gaps) plus the
-        info panel width. No hardcoded pixel constants — adapts automatically
-        if fonts, labels, or components change.
-        """
-        gap = 14
-        x = 14  # left margin
-        x += self.start_button.rect.width + 6
-        x += self.reset_button.rect.width + gap
-        # divider + gap
-        x += gap
-        # "Speed:" label + speed button group
-        speed_label_w = self.font_small.size("Speed:")[0] + 8
-        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 3 * (len(self.speed_group.buttons) - 1)
-        x += speed_label_w + speed_group_w + gap
-        # divider + gap
-        x += gap
-        # algorithm button group
-        algo_w = sum(b.rect.width for b in self.algo_group.buttons) + 3 * (len(self.algo_group.buttons) - 1)
-        x += algo_w + gap
-        # divider + gap
-        x += gap
-        # size button group
-        size_w = sum(b.rect.width for b in self.size_group.buttons) + 3 * (len(self.size_group.buttons) - 1)
-        x += size_w + 14  # right margin
-        return x + INFO_PANEL_WIDTH
-
-    def _get_min_required_height(self):
-        """Dynamically calculate the minimum window height.
-
-        Ensures header + control panel + a minimal canvas area are always visible.
-        """
-        min_canvas = 100
-        return HEADER_HEIGHT + CONTROL_PANEL_HEIGHT + min_canvas
 
     def _rebuild_layout(self, w, h):
         """Recalculate all layout positions for the given window dimensions."""
@@ -231,21 +194,6 @@ class App:
             if event.type == pygame.QUIT:
                 self.running = False
                 return
-
-            if event.type == pygame.VIDEORESIZE:
-                min_w = self._get_min_required_width()
-                min_h = self._get_min_required_height()
-                new_w = max(event.w, min_w)
-                new_h = max(event.h, min_h)
-                # Only re-set_mode if clamping changed the size (avoids resize loop)
-                if new_w != event.w or new_h != event.h:
-                    self.screen = pygame.display.set_mode(
-                        (new_w, new_h), pygame.RESIZABLE
-                    )
-                self._rebuild_layout(new_w, new_h)
-                # DEV TOOL: print live dimensions to console
-                print(f"[AlgoFlow] Window size: {new_w} x {new_h}")
-                continue
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -359,13 +307,6 @@ class App:
                 centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
             )
             self.screen.blit(hint_surf, hint_rect)
-
-        # DEV TOOL: render live dimensions in top-left corner
-        dim_text = f"{self.width} x {self.height}"
-        dim_surf = self.font_small.render(dim_text, True, (255, 200, 50))
-        dim_bg = pygame.Rect(4, HEADER_HEIGHT + 4, dim_surf.get_width() + 8, dim_surf.get_height() + 4)
-        pygame.draw.rect(self.screen, (0, 0, 0), dim_bg, border_radius=4)
-        self.screen.blit(dim_surf, (8, HEADER_HEIGHT + 6))
 
         pygame.display.flip()
 
