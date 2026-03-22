@@ -14,12 +14,13 @@ from config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE, FONT_FAMILY,
     HEADER_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH,
     SIZE_OPTIONS, DEFAULT_ARRAY_SIZE,
-    SPEED_OPTIONS, SPEED_MULTIPLIERS, BASE_SPEED,
+    BASE_SPEED,
     Colors
 )
 from ui.tab_bar import TabBar
 from ui.button import Button
 from ui.button_group import ButtonGroup
+from ui.slider import Slider
 from ui.info_panel import InfoPanel
 from visualizers.sorting_viz import SortingVisualizer
 from visualizers.pathfinding_viz import PathfindingVisualizer
@@ -45,7 +46,6 @@ class App:
 
         # Fonts - created once
         self.font_small = pygame.font.SysFont(FONT_FAMILY, 23)
-        self.font_hint = pygame.font.SysFont(FONT_FAMILY, 20)
 
         # Header with branding + tabs
         self.tab_bar = TabBar(WINDOW_WIDTH)
@@ -81,9 +81,9 @@ class App:
         # Reset button
         self.reset_button = Button(174, btn_y, 114, btn_h, "Reset", self.font_small)
 
-        # Speed selector (discrete multipliers replace continuous slider)
-        self.speed_group = ButtonGroup(
-            0, btn_y + 1, SPEED_OPTIONS, self.font_small, active_index=2
+        # Speed slider (continuous 0.1x–2.0x range)
+        self.speed_slider = Slider(
+            0, 0, 180, min_val=0.1, max_val=2.0, initial_val=1.0, label="Speed:"
         )
 
         # Algorithm selector
@@ -161,13 +161,12 @@ class App:
         self.div1_x = x
         x += gap
 
-        # "Speed:" label position stored for draw(), then speed button group
-        self.speed_label_x = x
+        # Speed slider — label is auto-drawn by Slider to the left of track
         speed_label_w = self.font_small.size("Speed:")[0] + 12
-        x += speed_label_w
-        self.speed_group.set_position(x, btn_y + 1)
-        speed_group_w = sum(b.rect.width for b in self.speed_group.buttons) + 5 * (len(self.speed_group.buttons) - 1)
-        x += speed_group_w + gap
+        slider_x = x + speed_label_w
+        slider_y = control_y + CONTROL_PANEL_HEIGHT // 2
+        self.speed_slider.set_position(slider_x, slider_y, 180)
+        x += speed_label_w + 180 + gap
 
         self.div2_x = x
         x += gap
@@ -231,7 +230,7 @@ class App:
             if self.reset_button.handle_event(event):
                 viz.reset()
 
-            self.speed_group.handle_event(event)
+            self.speed_slider.handle_event(event)
 
             algo_change = self.algo_group.handle_event(event)
             if algo_change and hasattr(viz, "set_algorithm"):
@@ -247,8 +246,8 @@ class App:
     def update(self):
         viz = self.get_active_visualizer()
         if viz.is_running and not viz.is_complete:
-            # Discrete speed: BASE_SPEED * selected multiplier
-            multiplier = SPEED_MULTIPLIERS.get(self.speed_group.get_active(), 1.0)
+            # Continuous speed: BASE_SPEED * slider multiplier
+            multiplier = self.speed_slider.get_value()
             dt = self.clock.get_time() / 1000.0
             ops_per_second = BASE_SPEED * multiplier
             self.step_accumulator += ops_per_second * dt
@@ -310,25 +309,12 @@ class App:
         self.start_button.draw(self.screen)
         self.reset_button.draw(self.screen)
         self._draw_divider(self.div1_x)
-        # Speed label + discrete button group
-        speed_label = self.font_small.render("Speed:", True, Colors.TEXT_SECONDARY)
-        self.screen.blit(speed_label, (self.speed_label_x, self.control_y + (CONTROL_PANEL_HEIGHT - speed_label.get_height()) // 2))
-        self.speed_group.draw(self.screen)
+        # Speed slider (draws its own "Speed:" label)
+        self.speed_slider.draw(self.screen, self.font_small)
         self._draw_divider(self.div2_x)
         self.algo_group.draw(self.screen)
         self._draw_divider(self.div3_x)
         self.size_group.draw(self.screen)
-
-        # Keyboard hints (right-aligned, only if space permits)
-        hint = "SPACE: play/pause \u00b7 R: reset \u00b7 \u2190\u2192: step"
-        hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
-        hint_x = self.width - 18 - hint_surf.get_width()
-        if hint_x > self.control_content_right + 24:
-            hint_rect = hint_surf.get_rect(
-                right=self.width - 18,
-                centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
-            )
-            self.screen.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
 

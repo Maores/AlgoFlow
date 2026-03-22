@@ -65,7 +65,7 @@ class InfoPanel:
         return card_rect
 
     def draw(self, surface):
-        """Draw the panel and all card sections."""
+        """Draw the panel and all card sections with dynamic sizing."""
         # Panel background
         pygame.draw.rect(surface, Colors.PANEL_BG, self.rect)
 
@@ -77,29 +77,76 @@ class InfoPanel:
         )
 
         px = self.rect.x + self.padding
-        py = self.rect.y + self.padding
         card_width = self.rect.width - self.padding * 2
         card_pad = 18  # internal card padding
-        card_gap = 12
+        available_h = self.rect.height - self.padding * 2
+
+        # --- Compute dynamic card heights based on content ---
+        algo_rows = 5  # Best, Avg, Worst, Space, Stable
+        stats_rows = 3  # Comparisons, Swaps, Status
+        legend_count = max(len(self.legend_items), 1)
+        controls = [
+            ("[Space]", "Play / Pause"),
+            ("[R]", "Reset"),
+            ("\u2190/\u2192", "Step Back / Forward"),
+        ]
+
+        # Standard spacing values (preferred)
+        header_h = 33       # space after section header
+        title_h = 45        # space after algorithm title
+        row_sp = 29         # row spacing for algo complexity
+        stat_sp = 33         # row spacing for stats
+        legend_sp = 33       # row spacing for legend items
+        ctrl_sp = 29         # row spacing for controls
+        bottom_pad = 18      # bottom padding inside card
+        card_gap = 12        # gap between cards
+
+        # Calculate card heights dynamically from content
+        card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
+        card2_h = card_pad + header_h + stats_rows * stat_sp + bottom_pad
+        card3_h = card_pad + header_h + legend_count * legend_sp + bottom_pad
+        card4_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
+        num_gaps = 3  # gaps between 4 cards
+
+        total_needed = card1_h + card2_h + card3_h + card4_h + num_gaps * card_gap
+
+        # Adaptive spacing: shrink if content overflows available height
+        if total_needed > available_h:
+            overflow = total_needed - available_h
+            # Strategy: reduce gaps first, then row spacing proportionally
+            gap_savings = min(overflow, num_gaps * (card_gap - 4))
+            card_gap = max(4, card_gap - gap_savings // num_gaps)
+            overflow -= gap_savings
+
+            if overflow > 0:
+                # Reduce all row spacings proportionally
+                total_rows = algo_rows + stats_rows + legend_count + len(controls)
+                reduction = min(overflow / max(total_rows, 1), 8)
+                row_sp = max(20, row_sp - reduction)
+                stat_sp = max(24, stat_sp - reduction)
+                legend_sp = max(24, legend_sp - reduction)
+                ctrl_sp = max(20, ctrl_sp - reduction)
+                # Recompute card heights with reduced spacing
+                card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
+                card2_h = card_pad + header_h + stats_rows * stat_sp + bottom_pad
+                card3_h = card_pad + header_h + legend_count * legend_sp + bottom_pad
+                card4_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
+
+        py = self.rect.y + self.padding
 
         # --- Card 1: Algorithm Info ---
-        card1_h = 255
         self._draw_card(surface, px, py, card_width, card1_h)
-
         cx = px + card_pad
         cy = py + card_pad
 
-        # Section header
         header_surf = self.font_section.render("ALGORITHM", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 33
+        cy += header_h
 
-        # Algorithm name
         name_surf = self.font_title.render(self.algo_name, True, Colors.TEXT_PRIMARY)
         surface.blit(name_surf, (cx, cy))
-        cy += 45
+        cy += title_h
 
-        # Complexity rows (label: value)
         rows = [
             ("Best", self.time_best),
             ("Avg", self.time_avg),
@@ -112,30 +159,27 @@ class InfoPanel:
             value_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
             surface.blit(label_surf, (cx, cy))
             surface.blit(value_surf, (cx + 90, cy))
-            cy += 29
+            cy += row_sp
 
         py += card1_h + card_gap
 
         # --- Card 2: Live Stats ---
-        card2_h = 174
         self._draw_card(surface, px, py, card_width, card2_h)
-
         cx = px + card_pad
         cy = py + card_pad
 
         header_surf = self.font_section.render("LIVE STATS", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 33
+        cy += header_h
 
         comp_surf = self.font_stats.render(f"Comparisons:  {self.comparisons}", True, Colors.TEXT_PRIMARY)
         surface.blit(comp_surf, (cx, cy))
-        cy += 33
+        cy += stat_sp
 
         swap_surf = self.font_stats.render(f"Swaps:  {self.swaps}", True, Colors.TEXT_PRIMARY)
         surface.blit(swap_surf, (cx, cy))
-        cy += 33
+        cy += stat_sp
 
-        # Status with colored value
         status_label = self.font_stats.render("Status:  ", True, Colors.TEXT_SECONDARY)
         surface.blit(status_label, (cx, cy))
         status_val = self.font_stats.render(self.status, True, self._get_status_color())
@@ -144,16 +188,13 @@ class InfoPanel:
         py += card2_h + card_gap
 
         # --- Card 3: Color Legend ---
-        legend_count = max(len(self.legend_items), 1)
-        card3_h = 42 + legend_count * 33 + 21
         self._draw_card(surface, px, py, card_width, card3_h)
-
         cx = px + card_pad
         cy = py + card_pad
 
         header_surf = self.font_section.render("LEGEND", True, Colors.TEXT_ACCENT)
         surface.blit(header_surf, (cx, cy))
-        cy += 33
+        cy += header_h
 
         square_size = 24
         for color, label in self.legend_items:
@@ -164,4 +205,22 @@ class InfoPanel:
             )
             label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
             surface.blit(label_surf, (cx + square_size + 15, cy))
-            cy += 33
+            cy += legend_sp
+
+        py += card3_h + card_gap
+
+        # --- Card 4: Keyboard Controls ---
+        self._draw_card(surface, px, py, card_width, card4_h)
+        cx = px + card_pad
+        cy = py + card_pad
+
+        header_surf = self.font_section.render("CONTROLS", True, Colors.TEXT_ACCENT)
+        surface.blit(header_surf, (cx, cy))
+        cy += header_h
+
+        for key, desc in controls:
+            key_surf = self.font_label.render(key, True, Colors.TEXT_ACCENT)
+            desc_surf = self.font_label.render(desc, True, Colors.TEXT_SECONDARY)
+            surface.blit(key_surf, (cx, cy))
+            surface.blit(desc_surf, (cx + key_surf.get_width() + 12, cy))
+            cy += ctrl_sp
