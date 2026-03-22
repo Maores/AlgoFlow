@@ -127,10 +127,12 @@ class SortingVisualizer(BaseVisualizer):
         n = self.array_size
         padding = 28
         available_width = self.canvas_rect.width - 2 * padding
+        if available_width < n * 4:
+            return  # canvas too narrow to draw anything meaningful
 
-        # Adaptive box sizing — no minimum floor, scales to fit canvas
+        # Adaptive box sizing — floor of 8px prevents overlapping illegible boxes
         gap = 4
-        box_size = min(52, (available_width - (n - 1) * gap) // n)
+        box_size = max(8, min(52, (available_width - (n - 1) * gap) // n))
 
         # Adaptive font: large for roomy boxes, small for compact, none if too tight
         if box_size >= 40:
@@ -172,6 +174,8 @@ class SortingVisualizer(BaseVisualizer):
         padding = 16
         available_width = self.canvas_rect.width - 2 * padding
         available_height = self.canvas_rect.height - 40
+        if available_width < 1 or available_height < 1:
+            return  # canvas too small to draw
 
         bar_width = max(2, available_width // self.array_size - 1)
         max_val = max(self.array) if self.array else 1
@@ -180,7 +184,7 @@ class SortingVisualizer(BaseVisualizer):
         start_x = self.canvas_rect.x + (self.canvas_rect.width - total_bars_width) // 2
 
         for i, (val, color) in enumerate(zip(self.array, self.bar_colors)):
-            bar_height = int((val / max_val) * available_height)
+            bar_height = max(1, int((val / max_val) * available_height))
             x = start_x + i * (bar_width + 1)
             y = self.canvas_rect.y + self.canvas_rect.height - 20 - bar_height
 
