@@ -119,27 +119,27 @@ class App:
         self.width = w
         self.height = h
 
-        # Canvas area
+        # Clamp derived dimensions so rects never go negative
         canvas_y = HEADER_HEIGHT
-        canvas_h = h - HEADER_HEIGHT - CONTROL_PANEL_HEIGHT
-        canvas_w = w - INFO_PANEL_WIDTH
+        canvas_h = max(1, h - HEADER_HEIGHT - CONTROL_PANEL_HEIGHT)
+        canvas_w = max(1, w - INFO_PANEL_WIDTH)
         self.canvas_rect = pygame.Rect(0, canvas_y, canvas_w, canvas_h)
 
         # Update all visualizers
         for viz in self.visualizers.values():
             viz.set_canvas_rect(self.canvas_rect)
 
-        # Info panel
+        # Info panel — flush right, clamped height
         self.info_panel.rect = pygame.Rect(
-            w - INFO_PANEL_WIDTH, canvas_y,
+            max(0, w - INFO_PANEL_WIDTH), canvas_y,
             INFO_PANEL_WIDTH, canvas_h
         )
 
         # Tab bar
         self.tab_bar.resize(w)
 
-        # Control bar
-        control_y = h - CONTROL_PANEL_HEIGHT
+        # Control bar — anchored to bottom, never above header
+        control_y = max(HEADER_HEIGHT, h - CONTROL_PANEL_HEIGHT)
         self.control_y = control_y
         btn_h = 34
         btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
@@ -175,6 +175,10 @@ class App:
 
         self.size_group.set_position(x, btn_y + 1)
 
+        # Track right edge of control bar content for hint collision check
+        last_btn = self.size_group.buttons[-1]
+        self.control_content_right = last_btn.rect.right
+
     def _update_info_panel(self):
         viz = self.visualizers.get("Sorting")
         if viz and hasattr(viz, "get_algorithm_info"):
@@ -197,9 +201,11 @@ class App:
             if event.type == pygame.VIDEORESIZE:
                 new_w = max(event.w, MIN_WINDOW_WIDTH)
                 new_h = max(event.h, MIN_WINDOW_HEIGHT)
-                self.screen = pygame.display.set_mode(
-                    (new_w, new_h), pygame.RESIZABLE
-                )
+                # Only re-set_mode if clamping changed the size (avoids resize loop)
+                if new_w != event.w or new_h != event.h:
+                    self.screen = pygame.display.set_mode(
+                        (new_w, new_h), pygame.RESIZABLE
+                    )
                 self._rebuild_layout(new_w, new_h)
                 continue
 
@@ -303,14 +309,16 @@ class App:
         self._draw_divider(self.div3_x)
         self.size_group.draw(self.screen)
 
-        # Keyboard hints (right-aligned in control bar)
+        # Keyboard hints (right-aligned, only if space permits)
         hint = "SPACE: play/pause \u00b7 R: reset"
         hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
-        hint_rect = hint_surf.get_rect(
-            right=self.width - 12,
-            centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
-        )
-        self.screen.blit(hint_surf, hint_rect)
+        hint_x = self.width - 12 - hint_surf.get_width()
+        if hint_x > self.control_content_right + 16:
+            hint_rect = hint_surf.get_rect(
+                right=self.width - 12,
+                centery=self.control_y + CONTROL_PANEL_HEIGHT // 2
+            )
+            self.screen.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
 
