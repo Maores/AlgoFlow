@@ -268,6 +268,10 @@ class App:
                 viz.get_status()
             )
 
+        # Pass pointer/array data for variables panel
+        if hasattr(viz, "current_pointers"):
+            self.info_panel.set_variables(viz.current_pointers, viz.array)
+
         # Update start button text (plain text, no unicode icons)
         if viz.is_running:
             self.start_button.text = "Pause"
