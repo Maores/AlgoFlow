@@ -182,7 +182,12 @@ class InfoPanel:
 
         status_label = self.font_stats.render("Status:  ", True, Colors.TEXT_SECONDARY)
         surface.blit(status_label, (cx, cy))
-        status_val = self.font_stats.render(self.status, True, self._get_status_color())
+        # Truncate long status strings to fit within card
+        display_status = self.status
+        max_w = card_width - card_pad * 2 - status_label.get_width()
+        while self.font_stats.size(display_status)[0] > max_w and len(display_status) > 3:
+            display_status = display_status[:-4] + "..."
+        status_val = self.font_stats.render(display_status, True, self._get_status_color())
         surface.blit(status_val, (cx + status_label.get_width(), cy))
 
         py += card2_h + card_gap

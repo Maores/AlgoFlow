@@ -1,67 +1,82 @@
 # algorithms/sorting.py - Pure sorting algorithm generators for AlgoFlow
 # NO pygame imports - clean separation of concerns
 #
-# Each algorithm is a Python generator that yields operation tuples.
-# The visualizer consumes these and applies colors/swaps.
-# This generator-as-coroutine pattern enables step-by-step execution
-# without threads.
+# Each algorithm is a Python generator that yields 4-tuple operation records:
+#   (op_type, indices_tuple, status_msg, pointers_dict)
+#
+# - op_type: "compare", "swap", "set", "pivot", "sorted", "done"
+# - indices_tuple: tuple of relevant indices/values
+# - status_msg: human-readable play-by-play string
+# - pointers_dict: variable names → array indices (positional),
+#                  _-prefixed keys → raw values (non-positional)
 
 
 def bubble_sort(array):
-    """
-    Generator that yields sorting operations for bubble sort.
-
-    Yields:
-        ("compare", i, j)  - comparing indices i and j
-        ("swap", i, j)     - swapping indices i and j
-        ("sorted", i)      - index i is in final position
-        ("done",)          - algorithm complete
-    """
+    """Generator for bubble sort with play-by-play status and pointer tracking."""
     n = len(array)
     for i in range(n):
         for j in range(0, n - i - 1):
-            yield ("compare", j, j + 1)
+            yield ("compare", (j, j + 1),
+                   f"Comparing arr[{j}]={array[j]} and arr[{j+1}]={array[j+1]}",
+                   {"j": j, "j+1": j + 1})
             if array[j] > array[j + 1]:
+                yield ("swap", (j, j + 1),
+                       f"Swapping {array[j]} and {array[j+1]}",
+                       {"j": j, "j+1": j + 1})
                 array[j], array[j + 1] = array[j + 1], array[j]
-                yield ("swap", j, j + 1)
-        yield ("sorted", n - i - 1)
-    yield ("done",)
+        yield ("sorted", (n - i - 1,),
+               f"Position {n-i-1} is now in final place", {})
+    yield ("done", (), "Sorting complete!", {})
 
 
 def selection_sort(array):
-    """Generator that yields sorting operations for selection sort."""
+    """Generator for selection sort with play-by-play status and pointer tracking."""
     n = len(array)
     for i in range(n):
         min_idx = i
         for j in range(i + 1, n):
-            yield ("compare", min_idx, j)
+            yield ("compare", (min_idx, j),
+                   f"Checking if arr[{j}]={array[j]} < current min arr[{min_idx}]={array[min_idx]}",
+                   {"i": i, "j": j, "min": min_idx})
             if array[j] < array[min_idx]:
                 min_idx = j
+                yield ("compare", (min_idx, j),
+                       f"New minimum found: arr[{j}]={array[j]}",
+                       {"i": i, "j": j, "min": min_idx})
         if min_idx != i:
+            yield ("swap", (i, min_idx),
+                   f"Placing minimum {array[min_idx]} at position {i}",
+                   {"i": i, "min": min_idx})
             array[i], array[min_idx] = array[min_idx], array[i]
-            yield ("swap", i, min_idx)
-        yield ("sorted", i)
-    yield ("done",)
+        yield ("sorted", (i,),
+               f"Position {i} is now in final place", {})
+    yield ("done", (), "Sorting complete!", {})
 
 
 def insertion_sort(array):
-    """Generator that yields sorting operations for insertion sort."""
+    """Generator for insertion sort with play-by-play status and pointer tracking."""
     n = len(array)
     for i in range(1, n):
+        key = array[i]
         j = i - 1
         while j >= 0:
-            yield ("compare", j, j + 1)
+            yield ("compare", (j, j + 1),
+                   f"Comparing arr[{j}]={array[j]} with arr[{j+1}]={array[j+1]}",
+                   {"i": i, "j": j, "_key": key})
             if array[j] > array[j + 1]:
+                yield ("swap", (j, j + 1),
+                       f"Shifting {array[j]} right because {array[j]} > key ({key})",
+                       {"i": i, "j": j, "_key": key})
                 array[j], array[j + 1] = array[j + 1], array[j]
-                yield ("swap", j, j + 1)
                 j -= 1
             else:
                 break
-        yield ("sorted", i)
+        yield ("sorted", (i,),
+               f"Key inserted \u2014 sorted prefix now has {i+1} elements", {})
     # Mark all as sorted at the end
     for i in range(n):
-        yield ("sorted", i)
-    yield ("done",)
+        yield ("sorted", (i,), "", {})
+    yield ("done", (), "Sorting complete!", {})
 
 
 def merge_sort(array):
@@ -69,13 +84,13 @@ def merge_sort(array):
     Generator for merge sort using yield from for recursive delegation.
 
     Merge sort is out-of-place: it copies sub-arrays into a temp buffer,
-    then writes elements back one at a time via ("set", index, value).
+    then writes elements back one at a time via ("set", ...).
     The visualizer handles the actual array[index] = value assignment.
     """
     yield from _merge_sort(array, 0, len(array) - 1)
     for i in range(len(array)):
-        yield ("sorted", i)
-    yield ("done",)
+        yield ("sorted", (i,), "", {})
+    yield ("done", (), "Sorting complete!", {})
 
 
 def _merge_sort(array, left, right):
@@ -95,25 +110,34 @@ def _merge(array, left, mid, right):
     k = left
 
     while i < len(left_copy) and j < len(right_copy):
-        # Highlight the two elements being compared from each sub-array
-        yield ("compare", left + i, mid + 1 + j)
+        yield ("compare", (left + i, mid + 1 + j),
+               f"Comparing left[{i}]={left_copy[i]} with right[{j}]={right_copy[j]}",
+               {"L": left + i, "R": mid + 1 + j, "k": k})
         if left_copy[i] <= right_copy[j]:
-            yield ("set", k, left_copy[i])
+            yield ("set", (k, left_copy[i]),
+                   f"Writing {left_copy[i]} to position {k} from left subarray",
+                   {"L": left + i, "k": k})
             i += 1
         else:
-            yield ("set", k, right_copy[j])
+            yield ("set", (k, right_copy[j]),
+                   f"Writing {right_copy[j]} to position {k} from right subarray",
+                   {"R": mid + 1 + j, "k": k})
             j += 1
         k += 1
 
     # Remaining elements from left sub-array
     while i < len(left_copy):
-        yield ("set", k, left_copy[i])
+        yield ("set", (k, left_copy[i]),
+               f"Writing {left_copy[i]} to position {k} from left subarray",
+               {"L": left + i, "k": k})
         i += 1
         k += 1
 
     # Remaining elements from right sub-array
     while j < len(right_copy):
-        yield ("set", k, right_copy[j])
+        yield ("set", (k, right_copy[j]),
+               f"Writing {right_copy[j]} to position {k} from right subarray",
+               {"R": mid + 1 + j, "k": k})
         j += 1
         k += 1
 
@@ -122,38 +146,46 @@ def quick_sort(array):
     """
     Generator for quick sort using yield from for recursive delegation.
 
-    Highlights the pivot element with ("pivot", index) and marks each
-    partition's final pivot position with ("sorted", index).
+    Highlights the pivot element with ("pivot", ...) and marks each
+    partition's final pivot position with ("sorted", ...).
     """
     yield from _quick_sort(array, 0, len(array) - 1)
     for i in range(len(array)):
-        yield ("sorted", i)
-    yield ("done",)
+        yield ("sorted", (i,), "", {})
+    yield ("done", (), "Sorting complete!", {})
 
 
 def _quick_sort(array, low, high):
     if low < high:
         pivot_idx = yield from _partition(array, low, high)
-        yield ("sorted", pivot_idx)
+        yield ("sorted", (pivot_idx,),
+               f"Pivot {pivot_idx} in final position", {})
         yield from _quick_sort(array, low, pivot_idx - 1)
         yield from _quick_sort(array, pivot_idx + 1, high)
 
 
 def _partition(array, low, high):
-    """Lomuto partition scheme — pivot is the last element."""
+    """Lomuto partition scheme \u2014 pivot is the last element."""
     pivot = array[high]
-    yield ("pivot", high)
+    yield ("pivot", (high,),
+           f"Pivot = arr[{high}] = {pivot}",
+           {"pivot": high})
     i = low - 1
     for j in range(low, high):
-        yield ("compare", j, high)
+        yield ("compare", (j, high),
+               f"Comparing arr[{j}]={array[j]} with pivot {pivot}",
+               {"pivot": high, "i": i + 1, "j": j})
         if array[j] <= pivot:
             i += 1
             if i != j:
+                yield ("swap", (i, j),
+                       f"Swapping arr[{i}] and arr[{j}], extending partition",
+                       {"pivot": high, "i": i, "j": j})
                 array[i], array[j] = array[j], array[i]
-                yield ("swap", i, j)
+    yield ("swap", (i + 1, high),
+           f"Placing pivot at position {i+1}",
+           {"pivot": i + 1})
     array[i + 1], array[high] = array[high], array[i + 1]
-    if i + 1 != high:
-        yield ("swap", i + 1, high)
     return i + 1
 
 
@@ -199,7 +231,7 @@ ALGORITHM_INFO = {
         "name": "Quick Sort",
         "time_best": "O(n log n)",
         "time_avg": "O(n log n)",
-        "time_worst": "O(n²)",
+        "time_worst": "O(n\u00b2)",
         "space": "O(log n)",
         "stable": False,
         "generator": quick_sort,

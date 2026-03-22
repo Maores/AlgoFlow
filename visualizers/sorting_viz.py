@@ -26,7 +26,11 @@ class SortingVisualizer(BaseVisualizer):
         self.swaps = 0
         self.generator = None
 
-        # Time-travel history: list of (array_copy, colors_copy, comparisons, swaps) snapshots
+        # Study mode: play-by-play status and variable pointers
+        self.current_status = ""
+        self.current_pointers = {}
+
+        # Time-travel history: list of (array, colors, comparisons, swaps, status, pointers)
         self.history = []
         self.history_index = -1
 
@@ -64,6 +68,8 @@ class SortingVisualizer(BaseVisualizer):
         self.swaps = 0
         self.step_count = 0
         self.generator = None
+        self.current_status = ""
+        self.current_pointers = {}
         self.history = []
         self.history_index = -1
 
@@ -99,37 +105,50 @@ class SortingVisualizer(BaseVisualizer):
             self.is_running = False
             return
 
-        if op[0] == "compare":
-            _, i, j = op
+        # Parse 4-tuple (new format) or legacy tuple
+        if len(op) == 4:
+            op_type, indices, status_msg, pointers = op
+            self.current_status = status_msg
+            self.current_pointers = pointers
+        else:
+            op_type = op[0]
+            indices = op[1:] if len(op) > 1 else ()
+            self.current_status = ""
+            self.current_pointers = {}
+
+        if op_type == "compare":
+            i, j = indices
             self.bar_colors[i] = Colors.BAR_COMPARING
             self.bar_colors[j] = Colors.BAR_COMPARING
             self.comparisons += 1
-        elif op[0] == "swap":
-            _, i, j = op
+        elif op_type == "swap":
+            i, j = indices
             self.bar_colors[i] = Colors.BAR_SWAPPING
             self.bar_colors[j] = Colors.BAR_SWAPPING
             self.swaps += 1
-        elif op[0] == "set":
-            _, i, val = op
+        elif op_type == "set":
+            i, val = indices
             self.array[i] = val
             self.bar_colors[i] = Colors.BAR_SWAPPING
-        elif op[0] == "pivot":
-            _, i = op
+        elif op_type == "pivot":
+            i = indices[0]
             self.bar_colors[i] = Colors.BAR_PIVOT
-        elif op[0] == "sorted":
-            _, i = op
+        elif op_type == "sorted":
+            i = indices[0]
             self.bar_colors[i] = Colors.BAR_SORTED
-        elif op[0] == "done":
+        elif op_type == "done":
             self.is_complete = True
             self.is_running = False
             self.bar_colors = [Colors.BAR_SORTED] * len(self.bar_colors)
 
-        # Record snapshot for time-travel
+        # Record snapshot for time-travel (6-tuple with status + pointers)
         self.history.append((
             list(self.array),
             list(self.bar_colors),
             self.comparisons,
             self.swaps,
+            self.current_status,
+            dict(self.current_pointers),
         ))
         self.history_index = len(self.history) - 1
 
@@ -156,7 +175,15 @@ class SortingVisualizer(BaseVisualizer):
 
     def _load_snapshot(self, index):
         """Restore visualizer state from a history snapshot."""
-        arr, colors, comps, swps = self.history[index]
+        snapshot = self.history[index]
+        if len(snapshot) == 6:
+            arr, colors, comps, swps, status, pointers = snapshot
+            self.current_status = status
+            self.current_pointers = pointers
+        else:
+            arr, colors, comps, swps = snapshot
+            self.current_status = ""
+            self.current_pointers = {}
         self.array = list(arr)
         self.bar_colors = list(colors)
         self.comparisons = comps
@@ -168,6 +195,8 @@ class SortingVisualizer(BaseVisualizer):
     def get_status(self):
         if self.is_complete:
             return "Complete"
+        if self.current_status and (self.is_running or self.comparisons > 0):
+            return self.current_status
         if self.is_running:
             return "Running"
         if self.comparisons > 0:
