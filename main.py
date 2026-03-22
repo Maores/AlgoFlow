@@ -83,7 +83,7 @@ class App:
 
         # Speed selector (discrete multipliers replace continuous slider)
         self.speed_group = ButtonGroup(
-            0, btn_y + 1, SPEED_OPTIONS, self.font_small, active_index=1
+            0, btn_y + 1, SPEED_OPTIONS, self.font_small, active_index=2
         )
 
         # Algorithm selector
@@ -114,6 +114,7 @@ class App:
             (Colors.BAR_COMPARING, "Comparing"),
             (Colors.BAR_SWAPPING, "Swapping"),
             (Colors.BAR_SORTED, "Sorted"),
+            (Colors.BAR_PIVOT, "Pivot"),
         ])
 
         self.running = True
@@ -211,6 +212,14 @@ class App:
                     self.get_active_visualizer().toggle()
                 elif event.key == pygame.K_r:
                     self.get_active_visualizer().reset()
+                elif event.key == pygame.K_RIGHT:
+                    viz = self.get_active_visualizer()
+                    if not viz.is_running and hasattr(viz, 'step_forward'):
+                        viz.step_forward()
+                elif event.key == pygame.K_LEFT:
+                    viz = self.get_active_visualizer()
+                    if not viz.is_running and hasattr(viz, 'step_backward'):
+                        viz.step_backward()
 
             self.tab_bar.handle_event(event)
 
@@ -245,7 +254,10 @@ class App:
             self.step_accumulator += ops_per_second * dt
             while self.step_accumulator >= 1.0 and viz.is_running and not viz.is_complete:
                 self.step_accumulator -= 1.0
-                viz.step()
+                if hasattr(viz, 'step_forward'):
+                    viz.step_forward()
+                else:
+                    viz.step()
             # Cap accumulator to avoid burst after pause/lag
             self.step_accumulator = min(self.step_accumulator, 5.0)
 
@@ -306,7 +318,7 @@ class App:
         self.size_group.draw(self.screen)
 
         # Keyboard hints (right-aligned, only if space permits)
-        hint = "SPACE: play/pause \u00b7 R: reset"
+        hint = "SPACE: play/pause \u00b7 R: reset \u00b7 \u2190\u2192: step"
         hint_surf = self.font_hint.render(hint, True, Colors.HINT_TEXT)
         hint_x = self.width - 18 - hint_surf.get_width()
         if hint_x > self.control_content_right + 24:

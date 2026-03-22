@@ -26,6 +26,10 @@ class SortingVisualizer(BaseVisualizer):
         self.swaps = 0
         self.generator = None
 
+        # Time-travel history: list of (array_copy, colors_copy, comparisons, swaps) snapshots
+        self.history = []
+        self.history_index = -1
+
         # Fonts created once, reused every frame
         self.font_box_large = pygame.font.SysFont(FONT_FAMILY, 24, bold=True)
         self.font_box_small = pygame.font.SysFont(FONT_FAMILY, 20, bold=True)
@@ -60,6 +64,8 @@ class SortingVisualizer(BaseVisualizer):
         self.swaps = 0
         self.step_count = 0
         self.generator = None
+        self.history = []
+        self.history_index = -1
 
     def start(self):
         if self.generator is None:
@@ -77,6 +83,7 @@ class SortingVisualizer(BaseVisualizer):
             self.is_running = False
 
     def step(self):
+        """Advance the generator by one operation and record the snapshot."""
         if self.generator is None:
             return
 
@@ -102,6 +109,13 @@ class SortingVisualizer(BaseVisualizer):
             self.bar_colors[i] = Colors.BAR_SWAPPING
             self.bar_colors[j] = Colors.BAR_SWAPPING
             self.swaps += 1
+        elif op[0] == "set":
+            _, i, val = op
+            self.array[i] = val
+            self.bar_colors[i] = Colors.BAR_SWAPPING
+        elif op[0] == "pivot":
+            _, i = op
+            self.bar_colors[i] = Colors.BAR_PIVOT
         elif op[0] == "sorted":
             _, i = op
             self.bar_colors[i] = Colors.BAR_SORTED
@@ -109,6 +123,44 @@ class SortingVisualizer(BaseVisualizer):
             self.is_complete = True
             self.is_running = False
             self.bar_colors = [Colors.BAR_SORTED] * len(self.bar_colors)
+
+        # Record snapshot for time-travel
+        self.history.append((
+            list(self.array),
+            list(self.bar_colors),
+            self.comparisons,
+            self.swaps,
+        ))
+        self.history_index = len(self.history) - 1
+
+    def step_forward(self):
+        """Step forward one frame (arrow key). Uses cache if available, else advances generator."""
+        if self.is_complete:
+            return
+        if self.history_index < len(self.history) - 1:
+            # Replay from cache — generator stays untouched
+            self.history_index += 1
+            self._load_snapshot(self.history_index)
+        else:
+            # At the end of cache — advance the generator to produce a new step
+            if self.generator is None:
+                self.start()
+                self.is_running = False  # stay paused
+            self.step()
+
+    def step_backward(self):
+        """Step backward one frame by loading previous snapshot from cache."""
+        if self.history_index > 0:
+            self.history_index -= 1
+            self._load_snapshot(self.history_index)
+
+    def _load_snapshot(self, index):
+        """Restore visualizer state from a history snapshot."""
+        arr, colors, comps, swps = self.history[index]
+        self.array = list(arr)
+        self.bar_colors = list(colors)
+        self.comparisons = comps
+        self.swaps = swps
 
     def handle_event(self, event):
         pass

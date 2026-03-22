@@ -64,6 +64,99 @@ def insertion_sort(array):
     yield ("done",)
 
 
+def merge_sort(array):
+    """
+    Generator for merge sort using yield from for recursive delegation.
+
+    Merge sort is out-of-place: it copies sub-arrays into a temp buffer,
+    then writes elements back one at a time via ("set", index, value).
+    The visualizer handles the actual array[index] = value assignment.
+    """
+    yield from _merge_sort(array, 0, len(array) - 1)
+    for i in range(len(array)):
+        yield ("sorted", i)
+    yield ("done",)
+
+
+def _merge_sort(array, left, right):
+    if left >= right:
+        return
+    mid = (left + right) // 2
+    yield from _merge_sort(array, left, mid)
+    yield from _merge_sort(array, mid + 1, right)
+    yield from _merge(array, left, mid, right)
+
+
+def _merge(array, left, mid, right):
+    """Merge two sorted sub-arrays array[left..mid] and array[mid+1..right]."""
+    left_copy = array[left:mid + 1]
+    right_copy = array[mid + 1:right + 1]
+    i = j = 0
+    k = left
+
+    while i < len(left_copy) and j < len(right_copy):
+        # Highlight the two elements being compared from each sub-array
+        yield ("compare", left + i, mid + 1 + j)
+        if left_copy[i] <= right_copy[j]:
+            yield ("set", k, left_copy[i])
+            i += 1
+        else:
+            yield ("set", k, right_copy[j])
+            j += 1
+        k += 1
+
+    # Remaining elements from left sub-array
+    while i < len(left_copy):
+        yield ("set", k, left_copy[i])
+        i += 1
+        k += 1
+
+    # Remaining elements from right sub-array
+    while j < len(right_copy):
+        yield ("set", k, right_copy[j])
+        j += 1
+        k += 1
+
+
+def quick_sort(array):
+    """
+    Generator for quick sort using yield from for recursive delegation.
+
+    Highlights the pivot element with ("pivot", index) and marks each
+    partition's final pivot position with ("sorted", index).
+    """
+    yield from _quick_sort(array, 0, len(array) - 1)
+    for i in range(len(array)):
+        yield ("sorted", i)
+    yield ("done",)
+
+
+def _quick_sort(array, low, high):
+    if low < high:
+        pivot_idx = yield from _partition(array, low, high)
+        yield ("sorted", pivot_idx)
+        yield from _quick_sort(array, low, pivot_idx - 1)
+        yield from _quick_sort(array, pivot_idx + 1, high)
+
+
+def _partition(array, low, high):
+    """Lomuto partition scheme — pivot is the last element."""
+    pivot = array[high]
+    yield ("pivot", high)
+    i = low - 1
+    for j in range(low, high):
+        yield ("compare", j, high)
+        if array[j] <= pivot:
+            i += 1
+            if i != j:
+                array[i], array[j] = array[j], array[i]
+                yield ("swap", i, j)
+    array[i + 1], array[high] = array[high], array[i + 1]
+    if i + 1 != high:
+        yield ("swap", i + 1, high)
+    return i + 1
+
+
 # Algorithm metadata - used by the visualizer and info panel
 ALGORITHM_INFO = {
     "Bubble": {
@@ -92,5 +185,23 @@ ALGORITHM_INFO = {
         "space": "O(1)",
         "stable": True,
         "generator": insertion_sort,
+    },
+    "Merge": {
+        "name": "Merge Sort",
+        "time_best": "O(n log n)",
+        "time_avg": "O(n log n)",
+        "time_worst": "O(n log n)",
+        "space": "O(n)",
+        "stable": True,
+        "generator": merge_sort,
+    },
+    "Quick": {
+        "name": "Quick Sort",
+        "time_best": "O(n log n)",
+        "time_avg": "O(n log n)",
+        "time_worst": "O(n²)",
+        "space": "O(log n)",
+        "stable": False,
+        "generator": quick_sort,
     },
 }

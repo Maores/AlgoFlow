@@ -19,8 +19,8 @@ DEFAULT_ARRAY_SIZE = 20
 SIZE_OPTIONS = ["10", "20", "30", "50", "100"]
 
 # Speed control (discrete multipliers replace continuous slider)
-SPEED_OPTIONS = ["0.5x", "1x", "1.5x", "2x"]
-SPEED_MULTIPLIERS = {"0.5x": 0.5, "1x": 1.0, "1.5x": 1.5, "2x": 2.0}
+SPEED_OPTIONS = ["0.25x", "0.5x", "1x", "1.5x", "2x"]
+SPEED_MULTIPLIERS = {"0.25x": 0.25, "0.5x": 0.5, "1x": 1.0, "1.5x": 1.5, "2x": 2.0}
 BASE_SPEED = 30  # base operations per second at 1x
 
 # Colors (RGB tuples)
