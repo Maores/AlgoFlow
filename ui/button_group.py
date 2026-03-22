@@ -29,11 +29,18 @@ class ButtonGroup:
         for i, btn in enumerate(self.buttons):
             if btn.handle_event(event):
                 if i != self.active_index:
-                    self.buttons[self.active_index].is_active = False
+                    if 0 <= self.active_index < len(self.buttons):
+                        self.buttons[self.active_index].is_active = False
                     self.active_index = i
                     btn.is_active = True
                     return self.labels[i]
         return None
+
+    def deselect_all(self):
+        """Clear active state from all buttons."""
+        if 0 <= self.active_index < len(self.buttons):
+            self.buttons[self.active_index].is_active = False
+        self.active_index = -1
 
     def set_position(self, x, y):
         """Reposition all buttons starting from (x, y)."""

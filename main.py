@@ -22,6 +22,7 @@ from ui.button import Button
 from ui.button_group import ButtonGroup
 from ui.slider import Slider
 from ui.info_panel import InfoPanel
+from ui.array_modal import ArrayModal
 from visualizers.sorting_viz import SortingVisualizer
 from visualizers.pathfinding_viz import PathfindingVisualizer
 from visualizers.tree_viz import TreeVisualizer
@@ -97,6 +98,16 @@ class App:
         self.size_group = ButtonGroup(
             0, btn_y + 1, SIZE_OPTIONS, self.font_small, active_index=default_idx
         )
+
+        # Custom array button (accent text to distinguish from size toggles)
+        custom_w = self.font_small.size("Custom")[0] + 36
+        self.custom_button = Button(
+            0, btn_y + 1, custom_w, 48, "Custom", self.font_small,
+            text_color=Colors.TEXT_ACCENT
+        )
+
+        # Array input modal
+        self.array_modal = ArrayModal(WINDOW_WIDTH, WINDOW_HEIGHT)
 
         # Divider positions (set by _rebuild_layout)
         self.div1_x = 0
@@ -179,10 +190,17 @@ class App:
         x += gap
 
         self.size_group.set_position(x, btn_y + 1)
+        size_width = sum(b.rect.width for b in self.size_group.buttons) + 5 * (len(self.size_group.buttons) - 1)
+        x += size_width + 12
+
+        # Custom button — positioned after size group
+        self.custom_button.rect.topleft = (x, btn_y + 1)
 
         # Track right edge of control bar content for hint collision check
-        last_btn = self.size_group.buttons[-1]
-        self.control_content_right = last_btn.rect.right
+        self.control_content_right = self.custom_button.rect.right
+
+        # Keep modal centered on resize
+        self.array_modal.resize(w, h)
 
     def _update_info_panel(self):
         viz = self.visualizers.get("Sorting")
@@ -197,11 +215,47 @@ class App:
         tab_name = self.tab_bar.get_active_tab()
         return self.visualizers[tab_name]
 
+    def _open_custom_modal(self):
+        """Pause if running and open the custom array modal."""
+        viz = self.visualizers["Sorting"]
+        if viz.is_running:
+            viz.toggle()
+        self.array_modal.open(viz.array_size)
+
+    def _apply_custom_array(self, array):
+        """Load a custom array and update size button state."""
+        viz = self.visualizers["Sorting"]
+        viz.set_custom_array(array)
+        # Re-select matching size button, or deselect all
+        custom_len = str(len(array))
+        if custom_len in SIZE_OPTIONS:
+            idx = SIZE_OPTIONS.index(custom_len)
+            self.size_group.deselect_all()
+            self.size_group.active_index = idx
+            self.size_group.buttons[idx].is_active = True
+        else:
+            self.size_group.deselect_all()
+        self._update_info_panel()
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
                 return
+
+            # Window resize always processed
+            if event.type == pygame.VIDEORESIZE:
+                self._rebuild_layout(event.w, event.h)
+                continue
+
+            # Modal consumes all other events when open
+            if self.array_modal.is_open():
+                result = self.array_modal.handle_event(event)
+                if result:
+                    if result["action"] == "apply":
+                        self._apply_custom_array(result["array"])
+                    self.array_modal.close()
+                continue
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
@@ -219,6 +273,9 @@ class App:
                     viz = self.get_active_visualizer()
                     if not viz.is_running and hasattr(viz, 'step_backward'):
                         viz.step_backward()
+                elif event.key == pygame.K_c:
+                    if self.tab_bar.get_active_tab() == "Sorting":
+                        self._open_custom_modal()
 
             self.tab_bar.handle_event(event)
 
@@ -240,6 +297,10 @@ class App:
             size_change = self.size_group.handle_event(event)
             if size_change and hasattr(viz, "set_array_size"):
                 viz.set_array_size(int(size_change))
+
+            if self.custom_button.handle_event(event):
+                if self.tab_bar.get_active_tab() == "Sorting":
+                    self._open_custom_modal()
 
             viz.handle_event(event)
 
@@ -319,6 +380,10 @@ class App:
         self.algo_group.draw(self.screen)
         self._draw_divider(self.div3_x)
         self.size_group.draw(self.screen)
+        self.custom_button.draw(self.screen)
+
+        # Modal overlay (drawn last, on top of everything)
+        self.array_modal.draw(self.screen)
 
         pygame.display.flip()
 

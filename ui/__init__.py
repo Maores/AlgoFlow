@@ -3,3 +3,4 @@ from ui.button import Button
 from ui.tab_bar import TabBar
 from ui.info_panel import InfoPanel
 from ui.button_group import ButtonGroup
+from ui.array_modal import ArrayModal

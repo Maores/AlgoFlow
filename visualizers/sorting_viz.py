@@ -62,6 +62,24 @@ class SortingVisualizer(BaseVisualizer):
         self.array_size = size
         self.reset()
 
+    def set_custom_array(self, array):
+        """Load a user-provided array and reset visualization state."""
+        self.array = list(array)
+        self.array_size = len(array)
+        self.bar_colors = [Colors.BAR_DEFAULT] * self.array_size
+        self.is_running = False
+        self.is_complete = False
+        self.comparisons = 0
+        self.swaps = 0
+        self.step_count = 0
+        self.generator = None
+        self.current_status = ""
+        self.current_pointers = {}
+        self._prev_pointers = None
+        self._cached_pills = []
+        self.history = []
+        self.history_index = -1
+
     def reset(self):
         if self._use_box_mode():
             self.array = [random.randint(1, 50) for _ in range(self.array_size)]
