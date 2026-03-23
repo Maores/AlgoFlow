@@ -220,7 +220,11 @@ class App:
         viz = self.visualizers["Sorting"]
         if viz.is_running:
             viz.toggle()
-        self.array_modal.open(viz.array_size, viz.array)
+        self.array_modal.open(
+            viz.array_size,
+            viz.custom_source_array if viz.has_custom_array else None,
+            viz.has_custom_array
+        )
 
     def _apply_custom_array(self, array):
         """Load a custom array and update size button state."""
@@ -305,6 +309,10 @@ class App:
             viz.handle_event(event)
 
     def update(self):
+        # Modal backspace repeat (must run every frame when modal is open)
+        if self.array_modal.is_open():
+            self.array_modal.update()
+
         viz = self.get_active_visualizer()
         if viz.is_running and not viz.is_complete:
             # Continuous speed: BASE_SPEED * slider multiplier

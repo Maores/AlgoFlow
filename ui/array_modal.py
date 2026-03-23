@@ -7,19 +7,32 @@ from config import Colors, FONT_FAMILY, BOX_MODE_THRESHOLD
 class ArrayModal:
     """Centered overlay modal for entering custom arrays or selecting presets."""
 
+    PRESET_LABELS = ["Random", "Sorted", "Reversed", "Nearly", "Few Unique"]
+
     def __init__(self, screen_width, screen_height):
         self.visible = False
         self.current_size = 10
-        self.original_text = ""
         self.input_text = ""
         self.error_msg = ""
         self.is_valid = False
         self.parsed_array = []
         self.select_all = False
 
+        # Focus state
+        self.array_focused = True
+        self.size_focused = False
+        self.size_text = str(self.current_size)
+
         # Cursor blink state
         self.cursor_visible = True
         self.cursor_timer = 0
+
+        # Backspace repeat state
+        self.backspace_held = False
+        self.backspace_timer = 0
+        self.backspace_initial_delay = 400
+        self.backspace_repeat_interval = 50
+        self.backspace_repeating = False
 
         # Fonts
         self.font_title = pygame.font.SysFont(FONT_FAMILY, 30, bold=True)
@@ -36,41 +49,6 @@ class ArrayModal:
         self.card_w = 520
         self.card_h = 400
         self._rebuild_layout()
-
-    # ------------------------------------------------------------------
-    # Preset generators
-    # ------------------------------------------------------------------
-
-    def _gen_random(self, size):
-        return [random.randint(1, 50) for _ in range(size)]
-
-    def _gen_sorted(self, size):
-        if size <= 50:
-            return [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
-        return list(range(1, size + 1))
-
-    def _gen_reversed(self, size):
-        return list(reversed(self._gen_sorted(size)))
-
-    def _gen_nearly_sorted(self, size):
-        arr = self._gen_sorted(size)
-        swaps = min(3, size // 3)
-        for _ in range(swaps):
-            idx = random.randint(0, len(arr) - 2)
-            arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
-        return arr
-
-    def _gen_few_unique(self, size):
-        distinct = random.sample(range(1, 50), min(4, 49))
-        return [random.choice(distinct) for _ in range(size)]
-
-    PRESETS = [
-        ("Random", "_gen_random"),
-        ("Sorted", "_gen_sorted"),
-        ("Reversed", "_gen_reversed"),
-        ("Nearly", "_gen_nearly_sorted"),
-        ("Few Unique", "_gen_few_unique"),
-    ]
 
     # ------------------------------------------------------------------
     # Layout
@@ -95,36 +73,37 @@ class ArrayModal:
         # Validation text
         self.valid_pos = (cx + pad, input_y + input_h + 8)
 
-        # Size selector row:  [-]  Size: 20  [+]
+        # Size selector row:  [-]  [__]  [+]
         size_row_y = input_y + input_h + 38
-        sq = 28  # square button size
-        size_label_w = self.font_btn.size("Size: 30")[0]  # max width estimate
-        total_size_w = sq + 10 + size_label_w + 10 + sq
+        sq = 28
+        size_input_w = 50
+        gap_s = 8
+        total_size_w = sq + gap_s + size_input_w + gap_s + sq
         size_x = cx + (self.card_w - total_size_w) // 2
         self.minus_rect = pygame.Rect(size_x, size_row_y, sq, sq)
-        self.size_label_pos = (size_x + sq + 10 + size_label_w // 2, size_row_y + sq // 2)
-        self.plus_rect = pygame.Rect(size_x + sq + 10 + size_label_w + 10, size_row_y, sq, sq)
+        self.size_input_rect = pygame.Rect(size_x + sq + gap_s, size_row_y, size_input_w, sq)
+        self.plus_rect = pygame.Rect(size_x + sq + gap_s + size_input_w + gap_s, size_row_y, sq, sq)
 
         # Preset row
         preset_y = size_row_y + sq + 14
         preset_h = 36
         preset_gap = 6
         self.preset_rects = []
-        total_w = sum(self.font_btn.size(p[0])[0] + 24 for p in self.PRESETS) + preset_gap * (len(self.PRESETS) - 1)
+        total_w = sum(self.font_btn.size(p)[0] + 24 for p in self.PRESET_LABELS) + preset_gap * (len(self.PRESET_LABELS) - 1)
         px = cx + (self.card_w - total_w) // 2
-        for label, _ in self.PRESETS:
+        for label in self.PRESET_LABELS:
             pw = self.font_btn.size(label)[0] + 24
             self.preset_rects.append(pygame.Rect(px, preset_y, pw, preset_h))
             px += pw + preset_gap
 
-        # Bottom row: [Reset] [Cancel] [Apply]
+        # Bottom row: [Clear] [Cancel] [Apply]
         btn_w = 100
         btn_h = 42
         btn_y = cy + self.card_h - pad - btn_h
         btn_gap = 12
         total_btn_w = btn_w * 3 + btn_gap * 2
         btn_x = cx + self.card_w - pad - total_btn_w
-        self.reset_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+        self.clear_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
         self.cancel_rect = pygame.Rect(btn_x + btn_w + btn_gap, btn_y, btn_w, btn_h)
         self.apply_rect = pygame.Rect(btn_x + (btn_w + btn_gap) * 2, btn_y, btn_w, btn_h)
 
@@ -136,20 +115,24 @@ class ArrayModal:
     # Public interface
     # ------------------------------------------------------------------
 
-    def open(self, current_size=10, current_array=None):
+    def open(self, current_size=10, current_array=None, is_custom=False):
         self.visible = True
         self.current_size = current_size
-        if current_array:
-            self.original_text = ", ".join(map(str, current_array))
+        self.size_text = str(current_size)
+        if is_custom and current_array:
+            self.input_text = ", ".join(map(str, current_array))
         else:
-            self.original_text = ""
-        self.input_text = self.original_text
+            self.input_text = ""
         self.error_msg = ""
         self.is_valid = False
         self.parsed_array = []
         self.select_all = False
         self.cursor_visible = True
         self.cursor_timer = pygame.time.get_ticks()
+        self.array_focused = True
+        self.size_focused = False
+        self.backspace_held = False
+        self.backspace_repeating = False
         self._validate()
 
     def close(self):
@@ -189,7 +172,7 @@ class ArrayModal:
                 self.parsed_array = []
                 return
             if v < 1 or v > 99:
-                self.error_msg = f"Values must be 1–99 (got {v})"
+                self.error_msg = f"Values must be 1\u201399 (got {v})"
                 self.is_valid = False
                 self.parsed_array = []
                 return
@@ -211,6 +194,72 @@ class ArrayModal:
         self.error_msg = f"{len(values)} values \u2014 ready"
 
     # ------------------------------------------------------------------
+    # Size text commit
+    # ------------------------------------------------------------------
+
+    def _commit_size_text(self):
+        """Parse size text, clamp to valid range, update current_size."""
+        try:
+            val = int(self.size_text) if self.size_text else 2
+        except ValueError:
+            val = 2
+        self.current_size = max(2, min(BOX_MODE_THRESHOLD, val))
+        self.size_text = str(self.current_size)
+
+    # ------------------------------------------------------------------
+    # Contextual presets
+    # ------------------------------------------------------------------
+
+    def _apply_preset(self, preset_name):
+        """Apply a preset — transforms existing valid input or generates new."""
+        if self.is_valid and self.parsed_array:
+            # TRANSFORM mode
+            arr = list(self.parsed_array)
+            if preset_name == "Random":
+                random.shuffle(arr)
+            elif preset_name == "Sorted":
+                arr.sort()
+            elif preset_name == "Reversed":
+                arr.sort(reverse=True)
+            elif preset_name == "Nearly":
+                arr.sort()
+                for _ in range(min(2, len(arr) // 3)):
+                    idx = random.randint(0, len(arr) - 2)
+                    arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
+            elif preset_name == "Few Unique":
+                n_distinct = random.randint(3, 4)
+                distinct = random.sample(range(1, 50), n_distinct)
+                arr = [random.choice(distinct) for _ in range(len(arr))]
+        elif not self.input_text.strip():
+            # GENERATE mode
+            self._commit_size_text()
+            size = self.current_size
+            if preset_name == "Random":
+                arr = [random.randint(1, 50) for _ in range(size)]
+            elif preset_name == "Sorted":
+                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+            elif preset_name == "Reversed":
+                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+                arr.reverse()
+            elif preset_name == "Nearly":
+                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+                for _ in range(min(2, size // 3)):
+                    idx = random.randint(0, len(arr) - 2)
+                    arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
+            elif preset_name == "Few Unique":
+                n_distinct = random.randint(3, 4)
+                distinct = random.sample(range(1, 50), n_distinct)
+                arr = [random.choice(distinct) for _ in range(size)]
+            else:
+                return
+        else:
+            # Non-empty but invalid — do nothing
+            return
+
+        self.input_text = ", ".join(str(v) for v in arr)
+        self._validate()
+
+    # ------------------------------------------------------------------
     # Event handling
     # ------------------------------------------------------------------
 
@@ -220,54 +269,93 @@ class ArrayModal:
             return None
 
         if event.type == pygame.KEYDOWN:
-            mods = pygame.key.get_mods()
-            ctrl = mods & (pygame.KMOD_CTRL | pygame.KMOD_META)
-
+            # Global keys
             if event.key == pygame.K_ESCAPE:
                 return {"action": "cancel"}
 
             if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                if self.is_valid:
+                if self.size_focused:
+                    self._commit_size_text()
+                    self.array_focused = True
+                    self.size_focused = False
+                elif self.is_valid:
                     return {"action": "apply", "array": list(self.parsed_array)}
                 return None
 
-            if ctrl and event.key == pygame.K_a:
-                self.select_all = True
-                return None
-
-            if ctrl and event.key == pygame.K_v:
-                self._handle_paste()
-                return None
-
+            # Backspace — immediate delete + start hold tracking
             if event.key == pygame.K_BACKSPACE:
-                if self.select_all or (ctrl and self.input_text):
-                    self.input_text = ""
-                    self.select_all = False
-                elif self.input_text:
-                    self.input_text = self.input_text[:-1]
-                self._validate()
+                self._handle_backspace_key()
+                self.backspace_held = True
+                self.backspace_timer = pygame.time.get_ticks()
+                self.backspace_repeating = False
                 return None
 
-            if event.key == pygame.K_DELETE:
-                if self.select_all:
-                    self.input_text = ""
-                    self.select_all = False
+            # Route to focused field
+            if self.size_focused:
+                if event.unicode.isdigit() and len(self.size_text) < 2:
+                    self.size_text += event.unicode
+                elif event.key == pygame.K_TAB:
+                    self._commit_size_text()
+                    self.array_focused = True
+                    self.size_focused = False
+                return None
+
+            if self.array_focused:
+                mods = pygame.key.get_mods()
+                ctrl = mods & (pygame.KMOD_CTRL | pygame.KMOD_META)
+
+                if ctrl and event.key == pygame.K_a:
+                    self.select_all = True
+                    return None
+
+                if ctrl and event.key == pygame.K_v:
+                    self._handle_paste()
+                    return None
+
+                if event.key == pygame.K_DELETE:
+                    if self.select_all:
+                        self.input_text = ""
+                        self.select_all = False
+                        self._validate()
+                    return None
+
+                if event.key == pygame.K_TAB:
+                    self.size_focused = True
+                    self.array_focused = False
+                    return None
+
+                # Printable character
+                ch = event.unicode
+                if ch and ch in "0123456789, ":
+                    if self.select_all:
+                        self.input_text = ""
+                        self.select_all = False
+                    if len(self.input_text) < 200:
+                        self.input_text += ch
                     self._validate()
                 return None
 
-            # Printable character
-            ch = event.unicode
-            if ch and ch in "0123456789, ":
-                if self.select_all:
-                    self.input_text = ""
-                    self.select_all = False
-                if len(self.input_text) < 200:
-                    self.input_text += ch
-                self._validate()
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_BACKSPACE:
+                self.backspace_held = False
+                self.backspace_repeating = False
             return None
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
+
+            # Focus management — commit size text if leaving size box
+            was_size_focused = self.size_focused
+            if self.input_rect.collidepoint(pos):
+                self.array_focused = True
+                self.size_focused = False
+            elif self.size_input_rect.collidepoint(pos):
+                self.size_focused = True
+                self.array_focused = False
+            else:
+                # Clicking a button — keep current focus but commit size if needed
+                if was_size_focused:
+                    self._commit_size_text()
 
             # Cancel button
             if self.cancel_rect.collidepoint(pos):
@@ -279,32 +367,52 @@ class ArrayModal:
                     return {"action": "apply", "array": list(self.parsed_array)}
                 return None
 
-            # Reset button — restore original array text
-            if self.reset_rect.collidepoint(pos):
-                self.input_text = self.original_text
+            # Clear button
+            if self.clear_rect.collidepoint(pos):
+                self.input_text = ""
                 self.select_all = False
                 self._validate()
                 return None
 
             # Size selector buttons
             if self.minus_rect.collidepoint(pos):
-                self.current_size = max(2, self.current_size - 5)
+                self._commit_size_text()
+                self.current_size = max(2, self.current_size - 1)
+                self.size_text = str(self.current_size)
                 return None
             if self.plus_rect.collidepoint(pos):
-                self.current_size = min(BOX_MODE_THRESHOLD, self.current_size + 5)
+                self._commit_size_text()
+                self.current_size = min(BOX_MODE_THRESHOLD, self.current_size + 1)
+                self.size_text = str(self.current_size)
                 return None
 
             # Preset buttons
             for i, rect in enumerate(self.preset_rects):
                 if rect.collidepoint(pos):
-                    gen_name = self.PRESETS[i][1]
-                    gen_func = getattr(self, gen_name)
-                    arr = gen_func(self.current_size)
-                    self.input_text = ", ".join(str(v) for v in arr)
-                    self._validate()
+                    self._apply_preset(self.PRESET_LABELS[i])
                     return None
 
         return None
+
+    def _handle_backspace_key(self):
+        """Perform one immediate backspace on the focused field."""
+        if self.size_focused:
+            self.size_text = self.size_text[:-1]
+        elif self.array_focused:
+            if self.select_all or (pygame.key.get_mods() & (pygame.KMOD_CTRL | pygame.KMOD_META) and self.input_text):
+                self.input_text = ""
+                self.select_all = False
+            elif self.input_text:
+                self.input_text = self.input_text[:-1]
+            self._validate()
+
+    def _do_backspace(self):
+        """Delete one character from the focused field (for repeat timer)."""
+        if self.array_focused and self.input_text:
+            self.input_text = self.input_text[:-1]
+            self._validate()
+        elif self.size_focused and self.size_text:
+            self.size_text = self.size_text[:-1]
 
     def _handle_paste(self):
         try:
@@ -313,7 +421,6 @@ class ArrayModal:
             raw = pygame.scrap.get(pygame.SCRAP_TEXT)
             if raw:
                 text = raw.decode("utf-8", errors="ignore").rstrip("\x00")
-                # Filter to allowed chars
                 filtered = "".join(c for c in text if c in "0123456789, ")
                 if self.select_all:
                     self.input_text = ""
@@ -324,6 +431,26 @@ class ArrayModal:
                 self._validate()
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # Update (called every frame for backspace repeat)
+    # ------------------------------------------------------------------
+
+    def update(self):
+        """Handle held-backspace repeat. Call every frame when modal is open."""
+        if not self.visible or not self.backspace_held:
+            return
+        now = pygame.time.get_ticks()
+        elapsed = now - self.backspace_timer
+        if not self.backspace_repeating:
+            if elapsed >= self.backspace_initial_delay:
+                self.backspace_repeating = True
+                self.backspace_timer = now
+                self._do_backspace()
+        else:
+            if elapsed >= self.backspace_repeat_interval:
+                self.backspace_timer = now
+                self._do_backspace()
 
     # ------------------------------------------------------------------
     # Drawing
@@ -351,10 +478,10 @@ class ArrayModal:
         title_rect = title_surf.get_rect(centerx=self.title_pos[0], top=self.title_pos[1])
         surface.blit(title_surf, title_rect)
 
-        # Input field
-        border_color = Colors.TEXT_ACCENT if not self.select_all else (100, 180, 230)
+        # Array input field
+        arr_border = Colors.TEXT_ACCENT if self.array_focused else Colors.CARD_BORDER
         pygame.draw.rect(surface, Colors.BG, self.input_rect, border_radius=8)
-        pygame.draw.rect(surface, border_color, self.input_rect, width=2, border_radius=8)
+        pygame.draw.rect(surface, arr_border, self.input_rect, width=2, border_radius=8)
 
         input_pad = 12
         clip_rect = pygame.Rect(
@@ -364,7 +491,6 @@ class ArrayModal:
 
         if self.input_text:
             text_surf = self.font_input.render(self.input_text, True, Colors.TEXT_PRIMARY)
-            # If text is wider than clip area, show the rightmost portion
             text_x = clip_rect.x
             if text_surf.get_width() > clip_rect.width:
                 text_x = clip_rect.right - text_surf.get_width()
@@ -376,8 +502,7 @@ class ArrayModal:
             surface.blit(text_surf, (text_x, text_y))
             surface.set_clip(None)
 
-            # Cursor
-            if self.cursor_visible and not self.select_all:
+            if self.cursor_visible and self.array_focused and not self.select_all:
                 cursor_x = min(text_x + text_surf.get_width() + 1, clip_rect.right - 1)
                 cy_top = self.input_rect.y + 8
                 cy_bot = self.input_rect.y + self.input_rect.height - 8
@@ -387,8 +512,7 @@ class ArrayModal:
             ph = self.font_input.render("e.g. 5, 34, 12, 8, 27", True, Colors.TEXT_SECONDARY)
             ph_y = self.input_rect.centery - ph.get_height() // 2
             surface.blit(ph, (clip_rect.x, ph_y))
-            # Cursor at start
-            if self.cursor_visible:
+            if self.cursor_visible and self.array_focused:
                 cy_top = self.input_rect.y + 8
                 cy_bot = self.input_rect.y + self.input_rect.height - 8
                 pygame.draw.line(surface, Colors.TEXT_PRIMARY, (clip_rect.x, cy_top), (clip_rect.x, cy_bot), 2)
@@ -399,7 +523,7 @@ class ArrayModal:
             valid_surf = self.font_label.render(self.error_msg, True, color)
             surface.blit(valid_surf, self.valid_pos)
 
-        # Size selector row:  [-]  Size: 20  [+]
+        # Size selector row:  [-]  [__]  [+]
         mouse_pos = pygame.mouse.get_pos()
 
         minus_hov = self.minus_rect.collidepoint(mouse_pos)
@@ -408,9 +532,17 @@ class ArrayModal:
         m_surf = self.font_btn.render("\u2212", True, Colors.BUTTON_TEXT)
         surface.blit(m_surf, m_surf.get_rect(center=self.minus_rect.center))
 
-        size_text = f"Size: {self.current_size}"
-        sz_surf = self.font_btn.render(size_text, True, Colors.TEXT_PRIMARY)
-        surface.blit(sz_surf, sz_surf.get_rect(center=self.size_label_pos))
+        # Size input box
+        size_border = Colors.TEXT_ACCENT if self.size_focused else Colors.CARD_BORDER
+        pygame.draw.rect(surface, Colors.BG, self.size_input_rect, border_radius=6)
+        pygame.draw.rect(surface, size_border, self.size_input_rect, width=2, border_radius=6)
+        sz_surf = self.font_btn.render(self.size_text, True, Colors.TEXT_PRIMARY)
+        surface.blit(sz_surf, sz_surf.get_rect(center=self.size_input_rect.center))
+        if self.cursor_visible and self.size_focused:
+            sz_cx = self.size_input_rect.centerx + sz_surf.get_width() // 2 + 2
+            sz_cy_top = self.size_input_rect.y + 5
+            sz_cy_bot = self.size_input_rect.y + self.size_input_rect.height - 5
+            pygame.draw.line(surface, Colors.TEXT_PRIMARY, (sz_cx, sz_cy_top), (sz_cx, sz_cy_bot), 2)
 
         plus_hov = self.plus_rect.collidepoint(mouse_pos)
         pygame.draw.rect(surface, Colors.BUTTON_HOVER if plus_hov else Colors.BUTTON_BG,
@@ -419,32 +551,28 @@ class ArrayModal:
         surface.blit(p_surf, p_surf.get_rect(center=self.plus_rect.center))
 
         # Preset buttons
-        for i, (label, _) in enumerate(self.PRESETS):
+        for i, label in enumerate(self.PRESET_LABELS):
             rect = self.preset_rects[i]
             hovered = rect.collidepoint(mouse_pos)
             bg = Colors.BUTTON_HOVER if hovered else Colors.BUTTON_BG
             pygame.draw.rect(surface, bg, rect, border_radius=6)
             lbl_surf = self.font_btn.render(label, True, Colors.BUTTON_TEXT)
-            lbl_rect = lbl_surf.get_rect(center=rect.center)
-            surface.blit(lbl_surf, lbl_rect)
+            surface.blit(lbl_surf, lbl_surf.get_rect(center=rect.center))
 
-        # Bottom row: [Reset] [Cancel] [Apply]
+        # Bottom row: [Clear] [Cancel] [Apply]
 
-        # Reset button
-        reset_hovered = self.reset_rect.collidepoint(mouse_pos)
-        reset_bg = Colors.BUTTON_HOVER if reset_hovered else Colors.BUTTON_BG
-        pygame.draw.rect(surface, reset_bg, self.reset_rect, border_radius=8)
-        reset_surf = self.font_btn.render("Reset", True, Colors.BUTTON_TEXT)
-        surface.blit(reset_surf, reset_surf.get_rect(center=self.reset_rect.center))
+        clear_hovered = self.clear_rect.collidepoint(mouse_pos)
+        clear_bg = Colors.BUTTON_HOVER if clear_hovered else Colors.BUTTON_BG
+        pygame.draw.rect(surface, clear_bg, self.clear_rect, border_radius=8)
+        clear_surf = self.font_btn.render("Clear", True, Colors.BUTTON_TEXT)
+        surface.blit(clear_surf, clear_surf.get_rect(center=self.clear_rect.center))
 
-        # Cancel button
         cancel_hovered = self.cancel_rect.collidepoint(mouse_pos)
         cancel_bg = Colors.BUTTON_HOVER if cancel_hovered else Colors.BUTTON_BG
         pygame.draw.rect(surface, cancel_bg, self.cancel_rect, border_radius=8)
         cancel_surf = self.font_btn.render("Cancel", True, Colors.BUTTON_TEXT)
         surface.blit(cancel_surf, cancel_surf.get_rect(center=self.cancel_rect.center))
 
-        # Apply button
         apply_hovered = self.apply_rect.collidepoint(mouse_pos)
         if self.is_valid:
             apply_bg = Colors.BUTTON_ACTIVE if not apply_hovered else (80, 150, 220)
