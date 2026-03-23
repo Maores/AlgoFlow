@@ -119,7 +119,7 @@ class ArrayModal:
         self.visible = True
         self.current_size = current_size
         self.size_text = str(current_size)
-        if is_custom and current_array:
+        if is_custom and current_array is not None:
             self.input_text = ", ".join(map(str, current_array))
         else:
             self.input_text = ""
@@ -199,61 +199,44 @@ class ArrayModal:
 
     def _commit_size_text(self):
         """Parse size text, clamp to valid range, update current_size."""
+        old_size = self.current_size
         try:
             val = int(self.size_text) if self.size_text else 2
         except ValueError:
             val = 2
         self.current_size = max(2, min(BOX_MODE_THRESHOLD, val))
         self.size_text = str(self.current_size)
+        if self.current_size != old_size:
+            self.input_text = ""
+            self._validate()
 
     # ------------------------------------------------------------------
     # Contextual presets
     # ------------------------------------------------------------------
 
     def _apply_preset(self, preset_name):
-        """Apply a preset — transforms existing valid input or generates new."""
-        if self.is_valid and self.parsed_array:
-            # TRANSFORM mode
-            arr = list(self.parsed_array)
-            if preset_name == "Random":
-                random.shuffle(arr)
-            elif preset_name == "Sorted":
-                arr.sort()
-            elif preset_name == "Reversed":
-                arr.sort(reverse=True)
-            elif preset_name == "Nearly":
-                arr.sort()
-                for _ in range(min(2, len(arr) // 3)):
-                    idx = random.randint(0, len(arr) - 2)
-                    arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
-            elif preset_name == "Few Unique":
-                n_distinct = random.randint(3, 4)
-                distinct = random.sample(range(1, 50), n_distinct)
-                arr = [random.choice(distinct) for _ in range(len(arr))]
-        elif not self.input_text.strip():
-            # GENERATE mode
-            self._commit_size_text()
-            size = self.current_size
-            if preset_name == "Random":
-                arr = [random.randint(1, 50) for _ in range(size)]
-            elif preset_name == "Sorted":
-                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
-            elif preset_name == "Reversed":
-                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
-                arr.reverse()
-            elif preset_name == "Nearly":
-                arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
-                for _ in range(min(2, size // 3)):
-                    idx = random.randint(0, len(arr) - 2)
-                    arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
-            elif preset_name == "Few Unique":
-                n_distinct = random.randint(3, 4)
-                distinct = random.sample(range(1, 50), n_distinct)
-                arr = [random.choice(distinct) for _ in range(size)]
-            else:
-                return
+        """Always generate a fresh array from the size selector."""
+        self._commit_size_text()
+        size = self.current_size
+
+        if preset_name == "Random":
+            arr = [random.randint(1, 50) for _ in range(size)]
+        elif preset_name == "Sorted":
+            arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+        elif preset_name == "Reversed":
+            arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+            arr.reverse()
+        elif preset_name == "Nearly":
+            arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
+            swaps = min(2, size // 3)
+            for _ in range(max(1, swaps)):
+                idx = random.randint(0, len(arr) - 2)
+                arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
+        elif preset_name == "Few Unique":
+            num_distinct = random.randint(3, 4)
+            distinct = random.sample(range(1, 50), num_distinct)
+            arr = [random.choice(distinct) for _ in range(size)]
         else:
-            # Non-empty but invalid — do nothing
             return
 
         self.input_text = ", ".join(str(v) for v in arr)
@@ -377,13 +360,21 @@ class ArrayModal:
             # Size selector buttons
             if self.minus_rect.collidepoint(pos):
                 self._commit_size_text()
+                old_size = self.current_size
                 self.current_size = max(2, self.current_size - 1)
                 self.size_text = str(self.current_size)
+                if self.current_size != old_size:
+                    self.input_text = ""
+                    self._validate()
                 return None
             if self.plus_rect.collidepoint(pos):
                 self._commit_size_text()
+                old_size = self.current_size
                 self.current_size = min(BOX_MODE_THRESHOLD, self.current_size + 1)
                 self.size_text = str(self.current_size)
+                if self.current_size != old_size:
+                    self.input_text = ""
+                    self._validate()
                 return None
 
             # Preset buttons
