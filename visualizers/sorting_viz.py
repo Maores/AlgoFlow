@@ -35,6 +35,10 @@ class SortingVisualizer(BaseVisualizer):
         self._prev_pointers = None
         self._cached_pills = []  # list of (surface, x, y)
 
+        # Custom array mode: preserve user input across algorithm switches/resets
+        self.custom_source_array = None
+        self.has_custom_array = False
+
         # Time-travel history: list of (array, colors, comparisons, swaps, status, pointers)
         self.history = []
         self.history_index = -1
@@ -59,13 +63,22 @@ class SortingVisualizer(BaseVisualizer):
             self.reset()
 
     def set_array_size(self, size):
+        """Change array size and exit custom mode."""
+        self.has_custom_array = False
+        self.custom_source_array = None
         self.array_size = size
         self.reset()
 
     def set_custom_array(self, array):
-        """Load a user-provided array and reset visualization state."""
+        """Load a user-provided array and enter custom mode."""
+        self.custom_source_array = list(array)
+        self.has_custom_array = True
         self.array = list(array)
         self.array_size = len(array)
+        self._reset_visual_state()
+
+    def _reset_visual_state(self):
+        """Reset colors, counters, and generator without touching array data."""
         self.bar_colors = [Colors.BAR_DEFAULT] * self.array_size
         self.is_running = False
         self.is_complete = False
@@ -81,23 +94,14 @@ class SortingVisualizer(BaseVisualizer):
         self.history_index = -1
 
     def reset(self):
-        if self._use_box_mode():
+        """Reset visualization. Restores custom array if in custom mode."""
+        if self.has_custom_array and self.custom_source_array is not None:
+            self.array = list(self.custom_source_array)
+        elif self._use_box_mode():
             self.array = [random.randint(1, 50) for _ in range(self.array_size)]
         else:
             self.array = [random.randint(10, 100) for _ in range(self.array_size)]
-        self.bar_colors = [Colors.BAR_DEFAULT] * self.array_size
-        self.is_running = False
-        self.is_complete = False
-        self.comparisons = 0
-        self.swaps = 0
-        self.step_count = 0
-        self.generator = None
-        self.current_status = ""
-        self.current_pointers = {}
-        self._prev_pointers = None
-        self._cached_pills = []
-        self.history = []
-        self.history_index = -1
+        self._reset_visual_state()
 
     def start(self):
         if self.generator is None:

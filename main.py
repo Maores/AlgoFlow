@@ -173,7 +173,7 @@ class App:
         x += gap
 
         # Speed slider — label is auto-drawn by Slider to the left of track
-        speed_label_w = self.font_small.size("Speed:")[0] + 12
+        speed_label_w = self.font_small.size("Speed:")[0] + 14
         slider_x = x + speed_label_w
         slider_y = control_y + CONTROL_PANEL_HEIGHT // 2
         self.speed_slider.set_position(slider_x, slider_y, 180)
@@ -220,7 +220,7 @@ class App:
         viz = self.visualizers["Sorting"]
         if viz.is_running:
             viz.toggle()
-        self.array_modal.open(viz.array_size)
+        self.array_modal.open(viz.array_size, viz.array)
 
     def _apply_custom_array(self, array):
         """Load a custom array and update size button state."""

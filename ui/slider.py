@@ -70,7 +70,7 @@ class Slider:
         # Draw label to the left
         if self.label:
             label_surf = font.render(self.label, True, Colors.TEXT_SECONDARY)
-            surface.blit(label_surf, (self.x - label_surf.get_width() - 8, self.y - label_surf.get_height() // 2))
+            surface.blit(label_surf, (self.x - label_surf.get_width() - 14, self.y - label_surf.get_height() // 2))
 
         # Track background
         track_rect = pygame.Rect(

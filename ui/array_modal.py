@@ -1,7 +1,7 @@
 # ui/array_modal.py - Custom array input modal for AlgoFlow
 import pygame
 import random
-from config import Colors, FONT_FAMILY
+from config import Colors, FONT_FAMILY, BOX_MODE_THRESHOLD
 
 
 class ArrayModal:
@@ -10,6 +10,7 @@ class ArrayModal:
     def __init__(self, screen_width, screen_height):
         self.visible = False
         self.current_size = 10
+        self.original_text = ""
         self.input_text = ""
         self.error_msg = ""
         self.is_valid = False
@@ -33,7 +34,7 @@ class ArrayModal:
         self.screen_w = screen_width
         self.screen_h = screen_height
         self.card_w = 520
-        self.card_h = 360
+        self.card_h = 400
         self._rebuild_layout()
 
     # ------------------------------------------------------------------
@@ -94,11 +95,20 @@ class ArrayModal:
         # Validation text
         self.valid_pos = (cx + pad, input_y + input_h + 8)
 
+        # Size selector row:  [-]  Size: 20  [+]
+        size_row_y = input_y + input_h + 38
+        sq = 28  # square button size
+        size_label_w = self.font_btn.size("Size: 30")[0]  # max width estimate
+        total_size_w = sq + 10 + size_label_w + 10 + sq
+        size_x = cx + (self.card_w - total_size_w) // 2
+        self.minus_rect = pygame.Rect(size_x, size_row_y, sq, sq)
+        self.size_label_pos = (size_x + sq + 10 + size_label_w // 2, size_row_y + sq // 2)
+        self.plus_rect = pygame.Rect(size_x + sq + 10 + size_label_w + 10, size_row_y, sq, sq)
+
         # Preset row
-        preset_y = input_y + input_h + 38
+        preset_y = size_row_y + sq + 14
         preset_h = 36
         preset_gap = 6
-        # Calculate widths from labels
         self.preset_rects = []
         total_w = sum(self.font_btn.size(p[0])[0] + 24 for p in self.PRESETS) + preset_gap * (len(self.PRESETS) - 1)
         px = cx + (self.card_w - total_w) // 2
@@ -107,17 +117,16 @@ class ArrayModal:
             self.preset_rects.append(pygame.Rect(px, preset_y, pw, preset_h))
             px += pw + preset_gap
 
-        # Apply / Cancel buttons
+        # Bottom row: [Reset] [Cancel] [Apply]
         btn_w = 100
         btn_h = 42
         btn_y = cy + self.card_h - pad - btn_h
         btn_gap = 12
-        self.cancel_rect = pygame.Rect(
-            cx + self.card_w - pad - btn_w * 2 - btn_gap, btn_y, btn_w, btn_h
-        )
-        self.apply_rect = pygame.Rect(
-            cx + self.card_w - pad - btn_w, btn_y, btn_w, btn_h
-        )
+        total_btn_w = btn_w * 3 + btn_gap * 2
+        btn_x = cx + self.card_w - pad - total_btn_w
+        self.reset_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+        self.cancel_rect = pygame.Rect(btn_x + btn_w + btn_gap, btn_y, btn_w, btn_h)
+        self.apply_rect = pygame.Rect(btn_x + (btn_w + btn_gap) * 2, btn_y, btn_w, btn_h)
 
         # Rebuild overlay
         self._overlay = pygame.Surface((self.screen_w, self.screen_h), pygame.SRCALPHA)
@@ -127,16 +136,21 @@ class ArrayModal:
     # Public interface
     # ------------------------------------------------------------------
 
-    def open(self, current_size=10):
+    def open(self, current_size=10, current_array=None):
         self.visible = True
         self.current_size = current_size
-        self.input_text = ""
+        if current_array:
+            self.original_text = ", ".join(map(str, current_array))
+        else:
+            self.original_text = ""
+        self.input_text = self.original_text
         self.error_msg = ""
         self.is_valid = False
         self.parsed_array = []
         self.select_all = False
         self.cursor_visible = True
         self.cursor_timer = pygame.time.get_ticks()
+        self._validate()
 
     def close(self):
         self.visible = False
@@ -265,6 +279,21 @@ class ArrayModal:
                     return {"action": "apply", "array": list(self.parsed_array)}
                 return None
 
+            # Reset button — restore original array text
+            if self.reset_rect.collidepoint(pos):
+                self.input_text = self.original_text
+                self.select_all = False
+                self._validate()
+                return None
+
+            # Size selector buttons
+            if self.minus_rect.collidepoint(pos):
+                self.current_size = max(2, self.current_size - 5)
+                return None
+            if self.plus_rect.collidepoint(pos):
+                self.current_size = min(BOX_MODE_THRESHOLD, self.current_size + 5)
+                return None
+
             # Preset buttons
             for i, rect in enumerate(self.preset_rects):
                 if rect.collidepoint(pos):
@@ -370,8 +399,26 @@ class ArrayModal:
             valid_surf = self.font_label.render(self.error_msg, True, color)
             surface.blit(valid_surf, self.valid_pos)
 
-        # Preset buttons
+        # Size selector row:  [-]  Size: 20  [+]
         mouse_pos = pygame.mouse.get_pos()
+
+        minus_hov = self.minus_rect.collidepoint(mouse_pos)
+        pygame.draw.rect(surface, Colors.BUTTON_HOVER if minus_hov else Colors.BUTTON_BG,
+                         self.minus_rect, border_radius=6)
+        m_surf = self.font_btn.render("\u2212", True, Colors.BUTTON_TEXT)
+        surface.blit(m_surf, m_surf.get_rect(center=self.minus_rect.center))
+
+        size_text = f"Size: {self.current_size}"
+        sz_surf = self.font_btn.render(size_text, True, Colors.TEXT_PRIMARY)
+        surface.blit(sz_surf, sz_surf.get_rect(center=self.size_label_pos))
+
+        plus_hov = self.plus_rect.collidepoint(mouse_pos)
+        pygame.draw.rect(surface, Colors.BUTTON_HOVER if plus_hov else Colors.BUTTON_BG,
+                         self.plus_rect, border_radius=6)
+        p_surf = self.font_btn.render("+", True, Colors.BUTTON_TEXT)
+        surface.blit(p_surf, p_surf.get_rect(center=self.plus_rect.center))
+
+        # Preset buttons
         for i, (label, _) in enumerate(self.PRESETS):
             rect = self.preset_rects[i]
             hovered = rect.collidepoint(mouse_pos)
@@ -380,6 +427,22 @@ class ArrayModal:
             lbl_surf = self.font_btn.render(label, True, Colors.BUTTON_TEXT)
             lbl_rect = lbl_surf.get_rect(center=rect.center)
             surface.blit(lbl_surf, lbl_rect)
+
+        # Bottom row: [Reset] [Cancel] [Apply]
+
+        # Reset button
+        reset_hovered = self.reset_rect.collidepoint(mouse_pos)
+        reset_bg = Colors.BUTTON_HOVER if reset_hovered else Colors.BUTTON_BG
+        pygame.draw.rect(surface, reset_bg, self.reset_rect, border_radius=8)
+        reset_surf = self.font_btn.render("Reset", True, Colors.BUTTON_TEXT)
+        surface.blit(reset_surf, reset_surf.get_rect(center=self.reset_rect.center))
+
+        # Cancel button
+        cancel_hovered = self.cancel_rect.collidepoint(mouse_pos)
+        cancel_bg = Colors.BUTTON_HOVER if cancel_hovered else Colors.BUTTON_BG
+        pygame.draw.rect(surface, cancel_bg, self.cancel_rect, border_radius=8)
+        cancel_surf = self.font_btn.render("Cancel", True, Colors.BUTTON_TEXT)
+        surface.blit(cancel_surf, cancel_surf.get_rect(center=self.cancel_rect.center))
 
         # Apply button
         apply_hovered = self.apply_rect.collidepoint(mouse_pos)
@@ -390,10 +453,3 @@ class ArrayModal:
         pygame.draw.rect(surface, apply_bg, self.apply_rect, border_radius=8)
         apply_surf = self.font_btn.render("Apply", True, Colors.BUTTON_TEXT)
         surface.blit(apply_surf, apply_surf.get_rect(center=self.apply_rect.center))
-
-        # Cancel button
-        cancel_hovered = self.cancel_rect.collidepoint(mouse_pos)
-        cancel_bg = Colors.BUTTON_HOVER if cancel_hovered else Colors.BUTTON_BG
-        pygame.draw.rect(surface, cancel_bg, self.cancel_rect, border_radius=8)
-        cancel_surf = self.font_btn.render("Cancel", True, Colors.BUTTON_TEXT)
-        surface.blit(cancel_surf, cancel_surf.get_rect(center=self.cancel_rect.center))
