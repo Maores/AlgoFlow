@@ -1,6 +1,7 @@
 # ui/info_panel.py - Side panel with card-based sections for AlgoFlow
 import pygame
 from config import Colors, FONT_FAMILY
+from algorithms.pseudocode import PSEUDOCODE
 
 
 class InfoPanel:
@@ -15,6 +16,13 @@ class InfoPanel:
         self.font_title = pygame.font.SysFont(FONT_FAMILY, 33, bold=True)
         self.font_stats = pygame.font.SysFont(FONT_FAMILY, 24)
         self.font_label = pygame.font.SysFont(FONT_FAMILY, 21)
+
+        # Monospace font for pseudocode
+        self.font_mono = pygame.font.SysFont("Consolas, Courier New, monospace", 15)
+
+        # Pseudocode state
+        self.algorithm_key = ""
+        self.current_op_type = ""
 
         # Algorithm info
         self.algo_name = ""
@@ -61,6 +69,10 @@ class InfoPanel:
     def set_variables(self, pointers_dict, array):
         self.current_pointers = pointers_dict
         self.current_array = array
+
+    def set_pseudocode_state(self, algorithm_key, op_type):
+        self.algorithm_key = algorithm_key
+        self.current_op_type = op_type
 
     def _get_status_color(self):
         status_colors = {
@@ -153,6 +165,7 @@ class InfoPanel:
         legend_sp = 33
         ctrl_sp = 29
         var_sp = 27
+        code_line_h = 20
         bottom_pad = 18
         card_gap = 12
 
@@ -178,6 +191,12 @@ class InfoPanel:
         if extra_status_lines > 0:
             card2_h += extra_status_lines * 24
 
+        # Pseudocode card
+        pc_data = PSEUDOCODE.get(self.algorithm_key)
+        has_pseudo = pc_data is not None
+        pc_line_count = len(pc_data["lines"]) if has_pseudo else 0
+        card_pseudo_h = card_pad + header_h + pc_line_count * code_line_h + bottom_pad if has_pseudo else 0
+
         # Variables card (only if pointers exist)
         has_vars = bool(self.current_pointers)
         var_count = len(self._cached_var_lines) if has_vars else 0
@@ -190,9 +209,9 @@ class InfoPanel:
         legend_count = len(self.legend_items)
 
         # Calculate remaining space for legend
-        num_cards = 3 + (1 if has_vars else 0)  # algo + stats + controls + maybe vars
+        num_cards = 3 + (1 if has_pseudo else 0) + (1 if has_vars else 0)
         num_gaps = num_cards  # gaps between all cards including legend
-        used = card1_h + card2_h + card_ctrl_h + (card_vars_h if has_vars else 0) + num_gaps * card_gap
+        used = card1_h + card2_h + card_ctrl_h + card_pseudo_h + (card_vars_h if has_vars else 0) + num_gaps * card_gap
         remaining = available_h - used
 
         # Legend card height — fit as many items as space allows
@@ -209,7 +228,7 @@ class InfoPanel:
             card_legend_h = 0
 
         # Adaptive spacing if still overflowing
-        total_needed = card1_h + card2_h + card_ctrl_h + card_legend_h
+        total_needed = card1_h + card2_h + card_ctrl_h + card_pseudo_h + card_legend_h
         if has_vars:
             total_needed += card_vars_h
         total_needed += num_gaps * card_gap
@@ -220,7 +239,7 @@ class InfoPanel:
             card_gap = max(4, card_gap - gap_savings // max(num_gaps, 1))
             overflow -= gap_savings
             if overflow > 0:
-                total_rows = algo_rows + stats_rows + var_count + len(controls) + max_legend_items
+                total_rows = algo_rows + stats_rows + pc_line_count + var_count + len(controls) + max_legend_items
                 if total_rows > 0:
                     reduction = min(overflow / total_rows, 8)
                     row_sp = max(20, row_sp - reduction)
@@ -228,10 +247,13 @@ class InfoPanel:
                     legend_sp = max(24, legend_sp - reduction)
                     ctrl_sp = max(20, ctrl_sp - reduction)
                     var_sp = max(20, var_sp - reduction)
+                    code_line_h = max(16, code_line_h - reduction)
                     card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
                     card2_h = card_pad + header_h + stats_rows * stat_sp + bottom_pad
                     if extra_status_lines > 0:
                         card2_h += extra_status_lines * 24
+                    if has_pseudo:
+                        card_pseudo_h = card_pad + header_h + pc_line_count * code_line_h + bottom_pad
                     if has_vars:
                         card_vars_h = card_pad + header_h + var_count * var_sp + bottom_pad
                     card_ctrl_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
@@ -320,6 +342,31 @@ class InfoPanel:
                 cy += 24
 
         py += card2_h + card_gap
+
+        # --- Card: Pseudocode ---
+        if has_pseudo and card_pseudo_h > 0:
+            self._draw_card(surface, px, py, card_width, card_pseudo_h)
+            cx = px + card_pad
+            cy = py + card_pad
+
+            header_surf = self.font_section.render("PSEUDOCODE", True, Colors.TEXT_ACCENT)
+            surface.blit(header_surf, (cx, cy))
+            cy += header_h
+
+            highlighted = set(pc_data["highlight_map"].get(self.current_op_type, []))
+            for i, line_text in enumerate(pc_data["lines"]):
+                if i in highlighted:
+                    hl_rect = pygame.Rect(cx - 4, cy - 2, inner_width + 8, code_line_h)
+                    hl_surf = pygame.Surface((hl_rect.width, hl_rect.height), pygame.SRCALPHA)
+                    hl_surf.fill((60, 130, 200, 50))
+                    surface.blit(hl_surf, hl_rect)
+                    text_surf = self.font_mono.render(line_text, True, Colors.TEXT_PRIMARY)
+                else:
+                    text_surf = self.font_mono.render(line_text, True, Colors.TEXT_SECONDARY)
+                surface.blit(text_surf, (cx, cy))
+                cy += code_line_h
+
+            py += card_pseudo_h + card_gap
 
         # --- Card: Variables (only when pointers are active) ---
         if has_vars and card_vars_h > 0:

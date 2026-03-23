@@ -210,6 +210,9 @@ class App:
                 info["name"], info["time_best"], info["time_avg"],
                 info["time_worst"], info["space"], info["stable"]
             )
+            self.info_panel.set_pseudocode_state(
+                viz.algorithm_key, getattr(viz, "current_op_type", "")
+            )
 
     def get_active_visualizer(self):
         tab_name = self.tab_bar.get_active_tab()
@@ -340,6 +343,10 @@ class App:
         # Pass pointer/array data for variables panel
         if hasattr(viz, "current_pointers"):
             self.info_panel.set_variables(viz.current_pointers, viz.array)
+
+        # Pass pseudocode state (algorithm key + current op type)
+        if hasattr(viz, "current_op_type"):
+            self.info_panel.set_pseudocode_state(viz.algorithm_key, viz.current_op_type)
 
         # Update start button text (plain text, no unicode icons)
         if viz.is_running:

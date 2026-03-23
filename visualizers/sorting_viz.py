@@ -30,6 +30,7 @@ class SortingVisualizer(BaseVisualizer):
         # Study mode: play-by-play status and variable pointers
         self.current_status = ""
         self.current_pointers = {}
+        self.current_op_type = ""
 
         # Pointer pill cache (rebuilt per-step, not per-frame)
         self._prev_pointers = None
@@ -88,6 +89,7 @@ class SortingVisualizer(BaseVisualizer):
         self.generator = None
         self.current_status = ""
         self.current_pointers = {}
+        self.current_op_type = ""
         self._prev_pointers = None
         self._cached_pills = []
         self.history = []
@@ -145,6 +147,7 @@ class SortingVisualizer(BaseVisualizer):
             indices = op[1:] if len(op) > 1 else ()
             self.current_status = ""
             self.current_pointers = {}
+        self.current_op_type = op_type
 
         if op_type == "compare":
             i, j = indices
@@ -171,7 +174,7 @@ class SortingVisualizer(BaseVisualizer):
             self.is_running = False
             self.bar_colors = [Colors.BAR_SORTED] * len(self.bar_colors)
 
-        # Record snapshot for time-travel (6-tuple with status + pointers)
+        # Record snapshot for time-travel (7-tuple with status + pointers + op_type)
         self.history.append((
             list(self.array),
             list(self.bar_colors),
@@ -179,6 +182,7 @@ class SortingVisualizer(BaseVisualizer):
             self.swaps,
             self.current_status,
             dict(self.current_pointers),
+            self.current_op_type,
         ))
         self.history_index = len(self.history) - 1
 
@@ -206,14 +210,21 @@ class SortingVisualizer(BaseVisualizer):
     def _load_snapshot(self, index):
         """Restore visualizer state from a history snapshot."""
         snapshot = self.history[index]
-        if len(snapshot) == 6:
+        if len(snapshot) >= 7:
+            arr, colors, comps, swps, status, pointers, op_type = snapshot
+            self.current_status = status
+            self.current_pointers = pointers
+            self.current_op_type = op_type
+        elif len(snapshot) == 6:
             arr, colors, comps, swps, status, pointers = snapshot
             self.current_status = status
             self.current_pointers = pointers
+            self.current_op_type = ""
         else:
             arr, colors, comps, swps = snapshot
             self.current_status = ""
             self.current_pointers = {}
+            self.current_op_type = ""
         self.array = list(arr)
         self.bar_colors = list(colors)
         self.comparisons = comps

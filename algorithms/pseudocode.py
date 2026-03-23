@@ -1,0 +1,96 @@
+# algorithms/pseudocode.py - Pseudocode definitions and highlight maps for AlgoFlow
+
+PSEUDOCODE = {
+    "Bubble": {
+        "lines": [
+            "for i = 0 to n-1:",
+            "    for j = 0 to n-i-2:",
+            "        if arr[j] > arr[j+1]:",
+            "            swap(arr[j], arr[j+1])",
+            "    // arr[n-i-1] is sorted",
+        ],
+        "highlight_map": {
+            "compare": [2],
+            "swap": [3],
+            "sorted": [4],
+            "done": [],
+        },
+    },
+    "Selection": {
+        "lines": [
+            "for i = 0 to n-1:",
+            "    min = i",
+            "    for j = i+1 to n-1:",
+            "        if arr[j] < arr[min]:",
+            "            min = j",
+            "    swap(arr[i], arr[min])",
+            "    // arr[0..i] is sorted",
+        ],
+        "highlight_map": {
+            "compare": [3],
+            "swap": [5],
+            "sorted": [6],
+            "done": [],
+        },
+    },
+    "Insertion": {
+        "lines": [
+            "for i = 1 to n-1:",
+            "    key = arr[i]",
+            "    j = i - 1",
+            "    while j >= 0 and arr[j] > key:",
+            "        arr[j+1] = arr[j]",
+            "        j = j - 1",
+            "    arr[j+1] = key",
+        ],
+        "highlight_map": {
+            "compare": [3],
+            "swap": [4],
+            "sorted": [6],
+            "done": [],
+        },
+    },
+    "Merge": {
+        "lines": [
+            "mergeSort(arr, l, r):",
+            "    if l < r:",
+            "        mid = (l + r) / 2",
+            "        mergeSort(arr, l, mid)",
+            "        mergeSort(arr, mid+1, r)",
+            "        merge(arr, l, mid, r)",
+            "",
+            "merge(left, right):",
+            "    compare and place smaller",
+        ],
+        "highlight_map": {
+            "compare": [8],
+            "set": [8],
+            "sorted": [5],
+            "done": [],
+        },
+    },
+    "Quick": {
+        "lines": [
+            "quickSort(arr, lo, hi):",
+            "    if lo < hi:",
+            "        p = partition(arr, lo, hi)",
+            "        quickSort(arr, lo, p-1)",
+            "        quickSort(arr, p+1, hi)",
+            "",
+            "partition(arr, lo, hi):",
+            "    pivot = arr[hi]",
+            "    i = lo - 1",
+            "    for j = lo to hi-1:",
+            "        if arr[j] <= pivot:",
+            "            i++; swap(arr[i], arr[j])",
+            "    swap(arr[i+1], arr[hi])",
+        ],
+        "highlight_map": {
+            "pivot": [7],
+            "compare": [10],
+            "swap": [11],
+            "sorted": [2],
+            "done": [],
+        },
+    },
+}
