@@ -13,9 +13,11 @@ class HelpModal:
         self.font_hint = pygame.font.SysFont(FONT_FAMILY, 16)
 
         self.card_w = 380
-        self.card_h = 300
+        self.card_h = 380
+        self.close_btn_size = 28
         self._overlay = None
         self.card_rect = pygame.Rect(0, 0, self.card_w, self.card_h)
+        self.close_btn_rect = pygame.Rect(0, 0, self.close_btn_size, self.close_btn_size)
         self.resize(screen_width, screen_height)
 
         self.controls = [
@@ -43,6 +45,11 @@ class HelpModal:
             (screen_height - self.card_h) // 2,
             self.card_w, self.card_h
         )
+        self.close_btn_rect = pygame.Rect(
+            self.card_rect.right - self.close_btn_size - 12,
+            self.card_rect.top + 12,
+            self.close_btn_size, self.close_btn_size
+        )
         self._overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
         self._overlay.fill((0, 0, 0, 140))
 
@@ -56,6 +63,9 @@ class HelpModal:
             return {"action": "close"}
 
         if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.close_btn_rect.collidepoint(event.pos):
+                self.close()
+                return {"action": "close"}
             if not self.card_rect.collidepoint(event.pos):
                 self.close()
                 return {"action": "close"}
@@ -74,6 +84,14 @@ class HelpModal:
         pygame.draw.rect(surface, Colors.PANEL_BG, self.card_rect, border_radius=12)
         pygame.draw.rect(surface, Colors.CARD_BORDER, self.card_rect, width=1, border_radius=12)
 
+        # X close button (hover highlight)
+        mouse_pos = pygame.mouse.get_pos()
+        if self.close_btn_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(surface, Colors.BUTTON_HOVER, self.close_btn_rect, border_radius=6)
+        x_surf = self.font_text.render("X", True, Colors.TEXT_SECONDARY)
+        x_rect = x_surf.get_rect(center=self.close_btn_rect.center)
+        surface.blit(x_surf, x_rect)
+
         # Title
         title_surf = self.font_title.render("Controls", True, Colors.TEXT_PRIMARY)
         title_rect = title_surf.get_rect(
@@ -82,8 +100,8 @@ class HelpModal:
         surface.blit(title_surf, title_rect)
 
         # Control rows
-        start_y = title_rect.bottom + 24
-        row_h = 32
+        start_y = title_rect.bottom + 28
+        row_h = 34
         key_x = self.card_rect.x + 60
         desc_x = self.card_rect.x + 160
 

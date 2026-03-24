@@ -110,9 +110,9 @@ class App:
         # Array input modal
         self.array_modal = ArrayModal(WINDOW_WIDTH, WINDOW_HEIGHT)
 
-        # Help button — small "?" button positioned by _rebuild_layout
-        help_w = self.font_small.size("?")[0] + 28
-        self.help_button = Button(0, btn_y, help_w, btn_h, "?", self.font_small,
+        # Help button — positioned by _rebuild_layout at far right of control bar
+        help_w = self.font_small.size("Help")[0] + 36
+        self.help_button = Button(0, btn_y, help_w, btn_h, "Help", self.font_small,
                                   text_color=Colors.TEXT_ACCENT)
 
         # Help modal
@@ -211,13 +211,13 @@ class App:
 
         # Custom button — positioned after size group
         self.custom_button.rect.topleft = (x, btn_y + 1)
-        x = self.custom_button.rect.right + 12
-
-        # Help button — positioned after custom button
-        self.help_button.rect.topleft = (x, btn_y + 1)
 
         # Track right edge of control bar content for hint collision check
-        self.control_content_right = self.help_button.rect.right
+        self.control_content_right = self.custom_button.rect.right
+
+        # Help button — anchored to far right of canvas area
+        help_right_margin = 14
+        self.help_button.rect.topright = (self.canvas_rect.width - help_right_margin, btn_y + 1)
 
         # Keep modals centered on resize
         self.array_modal.resize(w, h)
