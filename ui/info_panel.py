@@ -141,7 +141,7 @@ class InfoPanel:
                 self._cached_var_lines.append((name, str(idx), arr_val))
 
     def draw(self, surface):
-        """Draw the panel with bottom-anchored CONTROLS and dynamic cards."""
+        """Draw the panel with bottom-anchored CONTROLS and fixed-height cards."""
         # Panel background
         pygame.draw.rect(surface, Colors.PANEL_BG, self.rect)
 
@@ -155,7 +155,7 @@ class InfoPanel:
         px = self.rect.x + self.padding
         card_width = self.rect.width - self.padding * 2
         card_pad = 18
-        available_h = self.rect.height - self.padding * 2
+        inner_width = card_width - card_pad * 2
 
         # Spacing values
         header_h = 33
@@ -165,16 +165,15 @@ class InfoPanel:
         legend_sp = 33
         ctrl_sp = 29
         var_sp = 27
-        code_line_h = 20
+        code_line_h = 18
         bottom_pad = 18
         card_gap = 12
 
         # --- Build cached data ---
-        inner_width = card_width - card_pad * 2
         self._build_status_lines(inner_width)
         self._build_var_lines()
 
-        # --- Compute card heights ---
+        # --- Fixed card heights ---
         algo_rows = 5
         stats_rows = 3
         controls = [
@@ -185,80 +184,21 @@ class InfoPanel:
 
         card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
 
-        # Stats card: extra lines for wrapped status
-        extra_status_lines = len(self._cached_status_lines)
-        card2_h = card_pad + header_h + stats_rows * stat_sp + bottom_pad
-        if extra_status_lines > 0:
-            card2_h += extra_status_lines * 24
+        # Fix 1: LIVE STATS — fixed height, always reserves 2 status text lines
+        card2_h = card_pad + header_h + stats_rows * stat_sp + 2 * 24 + bottom_pad
 
-        # Pseudocode card
+        # Fix 2: PSEUDOCODE — fixed height based on longest algorithm (Quick Sort = 13 lines)
         pc_data = PSEUDOCODE.get(self.algorithm_key)
-        has_pseudo = pc_data is not None
-        pc_line_count = len(pc_data["lines"]) if has_pseudo else 0
-        card_pseudo_h = card_pad + header_h + pc_line_count * code_line_h + bottom_pad if has_pseudo else 0
-
-        # Variables card (only if pointers exist)
-        has_vars = bool(self.current_pointers)
-        var_count = len(self._cached_var_lines) if has_vars else 0
-        card_vars_h = card_pad + header_h + var_count * var_sp + bottom_pad if has_vars else 0
+        max_pc_lines = max(len(v["lines"]) for v in PSEUDOCODE.values())
+        card_pseudo_h = card_pad + header_h + max_pc_lines * code_line_h + bottom_pad
 
         # Controls card (fixed)
         card_ctrl_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
 
-        # Legend card — gets remaining space
-        legend_count = len(self.legend_items)
-
-        # Calculate remaining space for legend
-        num_cards = 3 + (1 if has_pseudo else 0) + (1 if has_vars else 0)
-        num_gaps = num_cards  # gaps between all cards including legend
-        used = card1_h + card2_h + card_ctrl_h + card_pseudo_h + (card_vars_h if has_vars else 0) + num_gaps * card_gap
-        remaining = available_h - used
-
-        # Legend card height — fit as many items as space allows
-        legend_header_cost = card_pad + header_h + bottom_pad
-        if remaining >= legend_header_cost + legend_sp:
-            max_legend_items = min(legend_count, int((remaining - legend_header_cost) / legend_sp))
-            max_legend_items = max(max_legend_items, 1)
-            card_legend_h = legend_header_cost + max_legend_items * legend_sp
-        elif remaining >= 40:
-            max_legend_items = 0
-            card_legend_h = remaining
-        else:
-            max_legend_items = 0
-            card_legend_h = 0
-
-        # Adaptive spacing if still overflowing
-        total_needed = card1_h + card2_h + card_ctrl_h + card_pseudo_h + card_legend_h
-        if has_vars:
-            total_needed += card_vars_h
-        total_needed += num_gaps * card_gap
-
-        if total_needed > available_h:
-            overflow = total_needed - available_h
-            gap_savings = min(overflow, num_gaps * (card_gap - 4))
-            card_gap = max(4, card_gap - gap_savings // max(num_gaps, 1))
-            overflow -= gap_savings
-            if overflow > 0:
-                total_rows = algo_rows + stats_rows + pc_line_count + var_count + len(controls) + max_legend_items
-                if total_rows > 0:
-                    reduction = min(overflow / total_rows, 8)
-                    row_sp = max(20, row_sp - reduction)
-                    stat_sp = max(24, stat_sp - reduction)
-                    legend_sp = max(24, legend_sp - reduction)
-                    ctrl_sp = max(20, ctrl_sp - reduction)
-                    var_sp = max(20, var_sp - reduction)
-                    code_line_h = max(16, code_line_h - reduction)
-                    card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
-                    card2_h = card_pad + header_h + stats_rows * stat_sp + bottom_pad
-                    if extra_status_lines > 0:
-                        card2_h += extra_status_lines * 24
-                    if has_pseudo:
-                        card_pseudo_h = card_pad + header_h + pc_line_count * code_line_h + bottom_pad
-                    if has_vars:
-                        card_vars_h = card_pad + header_h + var_count * var_sp + bottom_pad
-                    card_ctrl_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
-                    if max_legend_items > 0:
-                        card_legend_h = legend_header_cost + max_legend_items * legend_sp
+        # Variables card (desired height, may be clamped)
+        has_vars = bool(self.current_pointers)
+        var_count = len(self._cached_var_lines) if has_vars else 0
+        card_vars_h = card_pad + header_h + var_count * var_sp + bottom_pad if has_vars else 0
 
         # --- Draw CONTROLS card anchored to bottom ---
         ctrl_y = self.rect.bottom - self.padding - card_ctrl_h
@@ -309,7 +249,7 @@ class InfoPanel:
 
         py += card1_h + card_gap
 
-        # --- Card 2: Live Stats ---
+        # --- Card 2: Live Stats (fixed height) ---
         self._draw_card(surface, px, py, card_width, card2_h)
         cx = px + card_pad
         cy = py + card_pad
@@ -343,34 +283,39 @@ class InfoPanel:
 
         py += card2_h + card_gap
 
-        # --- Card: Pseudocode ---
-        if has_pseudo and card_pseudo_h > 0:
-            self._draw_card(surface, px, py, card_width, card_pseudo_h)
-            cx = px + card_pad
-            cy = py + card_pad
+        # --- Card 3: Pseudocode (fixed height) ---
+        self._draw_card(surface, px, py, card_width, card_pseudo_h)
+        cx = px + card_pad
+        cy = py + card_pad
 
-            header_surf = self.font_section.render("PSEUDOCODE", True, Colors.TEXT_ACCENT)
-            surface.blit(header_surf, (cx, cy))
-            cy += header_h
+        header_surf = self.font_section.render("PSEUDOCODE", True, Colors.TEXT_ACCENT)
+        surface.blit(header_surf, (cx, cy))
+        cy += header_h
 
+        if pc_data is not None:
             highlighted = set(pc_data["highlight_map"].get(self.current_op_type, []))
+            code_top = cy
             for i, line_text in enumerate(pc_data["lines"]):
+                line_y = code_top + i * code_line_h
                 if i in highlighted:
-                    hl_rect = pygame.Rect(cx - 4, cy - 2, inner_width + 8, code_line_h)
+                    hl_rect = pygame.Rect(cx - 4, line_y - 2, inner_width + 8, code_line_h)
                     hl_surf = pygame.Surface((hl_rect.width, hl_rect.height), pygame.SRCALPHA)
                     hl_surf.fill((60, 130, 200, 50))
                     surface.blit(hl_surf, hl_rect)
                     text_surf = self.font_mono.render(line_text, True, Colors.TEXT_PRIMARY)
                 else:
                     text_surf = self.font_mono.render(line_text, True, Colors.TEXT_SECONDARY)
-                surface.blit(text_surf, (cx, cy))
-                cy += code_line_h
+                surface.blit(text_surf, (cx, line_y))
 
-            py += card_pseudo_h + card_gap
+        py += card_pseudo_h + card_gap
 
-        # --- Card: Variables (only when pointers are active) ---
-        if has_vars and card_vars_h > 0:
-            self._draw_card(surface, px, py, card_width, card_vars_h)
+        # --- Fix 3: Remaining space check — nothing draws below ctrl_y ---
+        remaining = ctrl_y - py - card_gap
+
+        if has_vars and remaining >= 60:
+            # --- Card: Variables (clamped to remaining space) ---
+            draw_h = min(card_vars_h, remaining)
+            self._draw_card(surface, px, py, card_width, draw_h)
             cx = px + card_pad
             cy = py + card_pad
 
@@ -378,7 +323,11 @@ class InfoPanel:
             surface.blit(header_surf, (cx, cy))
             cy += header_h
 
+            # Only draw variable rows that fit within the clamped card
+            max_var_y = py + draw_h - bottom_pad
             for name, value, arr_info in self._cached_var_lines:
+                if cy + var_sp > max_var_y:
+                    break
                 name_surf = self.font_label.render(f"{name} = ", True, Colors.TEXT_ACCENT)
                 surface.blit(name_surf, (cx, cy))
                 val_x = cx + name_surf.get_width()
@@ -390,25 +339,32 @@ class InfoPanel:
                     surface.blit(info_surf, (info_x, cy))
                 cy += var_sp
 
-            py += card_vars_h + card_gap
+        elif not has_vars and remaining >= 60:
+            # --- Card: Legend (only when variables are inactive) ---
+            legend_count = len(self.legend_items)
+            legend_header_cost = card_pad + header_h + bottom_pad
+            max_legend_items = min(
+                legend_count,
+                max(0, int((remaining - legend_header_cost) / legend_sp))
+            )
+            if max_legend_items > 0:
+                card_legend_h = legend_header_cost + max_legend_items * legend_sp
+                card_legend_h = min(card_legend_h, remaining)
+                self._draw_card(surface, px, py, card_width, card_legend_h)
+                cx = px + card_pad
+                cy = py + card_pad
 
-        # --- Card: Legend (remaining space between variables and controls) ---
-        if card_legend_h > 0 and max_legend_items > 0:
-            self._draw_card(surface, px, py, card_width, card_legend_h)
-            cx = px + card_pad
-            cy = py + card_pad
+                header_surf = self.font_section.render("LEGEND", True, Colors.TEXT_ACCENT)
+                surface.blit(header_surf, (cx, cy))
+                cy += header_h
 
-            header_surf = self.font_section.render("LEGEND", True, Colors.TEXT_ACCENT)
-            surface.blit(header_surf, (cx, cy))
-            cy += header_h
-
-            square_size = 24
-            for color, label in self.legend_items[:max_legend_items]:
-                pygame.draw.rect(
-                    surface, color,
-                    (cx, cy + 1, square_size, square_size),
-                    border_radius=3
-                )
-                label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
-                surface.blit(label_surf, (cx + square_size + 15, cy))
-                cy += legend_sp
+                square_size = 24
+                for color, label in self.legend_items[:max_legend_items]:
+                    pygame.draw.rect(
+                        surface, color,
+                        (cx, cy + 1, square_size, square_size),
+                        border_radius=3
+                    )
+                    label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
+                    surface.blit(label_surf, (cx + square_size + 15, cy))
+                    cy += legend_sp
