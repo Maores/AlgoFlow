@@ -224,6 +224,7 @@ The pathfinding visualizer must implement these methods/attributes for `main.py`
 - `is_running` — Playback state
 - `is_complete` — Algorithm finished
 - `cells_explored` — Counter (replaces sorting's `comparisons`)
+- `frontier_size` — Current frontier/queue size
 - `path_length` — Counter (replaces sorting's `swaps`)
 - `total_cost` — Path cost for weighted algorithms
 - `current_op_type` — Last operation type (for pseudocode highlighting)
