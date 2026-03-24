@@ -23,6 +23,7 @@ from ui.button_group import ButtonGroup
 from ui.slider import Slider
 from ui.info_panel import InfoPanel
 from ui.array_modal import ArrayModal
+from ui.help_modal import HelpModal
 from visualizers.sorting_viz import SortingVisualizer
 from visualizers.pathfinding_viz import PathfindingVisualizer
 from visualizers.tree_viz import TreeVisualizer
@@ -108,6 +109,21 @@ class App:
 
         # Array input modal
         self.array_modal = ArrayModal(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+        # Help button — small "?" button positioned by _rebuild_layout
+        help_w = self.font_small.size("?")[0] + 28
+        self.help_button = Button(0, btn_y, help_w, btn_h, "?", self.font_small,
+                                  text_color=Colors.TEXT_ACCENT)
+
+        # Help modal
+        self.help_modal = HelpModal(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+        # Arrow key repeat state
+        self.arrow_held = None           # "right" or "left" or None
+        self.arrow_timer = 0
+        self.arrow_initial_delay = 300   # ms before repeat starts
+        self.arrow_repeat_interval = 60  # ms between repeated steps
+        self.arrow_repeating = False
 
         # Divider positions (set by _rebuild_layout)
         self.div1_x = 0
@@ -195,12 +211,17 @@ class App:
 
         # Custom button — positioned after size group
         self.custom_button.rect.topleft = (x, btn_y + 1)
+        x = self.custom_button.rect.right + 12
+
+        # Help button — positioned after custom button
+        self.help_button.rect.topleft = (x, btn_y + 1)
 
         # Track right edge of control bar content for hint collision check
-        self.control_content_right = self.custom_button.rect.right
+        self.control_content_right = self.help_button.rect.right
 
-        # Keep modal centered on resize
+        # Keep modals centered on resize
         self.array_modal.resize(w, h)
+        self.help_modal.resize(w, h)
 
     def _update_info_panel(self):
         viz = self.visualizers.get("Sorting")
@@ -244,6 +265,16 @@ class App:
             self.size_group.deselect_all()
         self._update_info_panel()
 
+    def _do_arrow_step(self):
+        """Execute one arrow-key step in the held direction."""
+        viz = self.get_active_visualizer()
+        if viz.is_running:
+            return
+        if self.arrow_held == "right" and hasattr(viz, 'step_forward'):
+            viz.step_forward()
+        elif self.arrow_held == "left" and hasattr(viz, 'step_backward'):
+            viz.step_backward()
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -255,7 +286,14 @@ class App:
                 self._rebuild_layout(event.w, event.h)
                 continue
 
-            # Modal consumes all other events when open
+            # Help modal consumes events when open
+            if self.help_modal.is_open():
+                result = self.help_modal.handle_event(event)
+                if result and result["action"] == "close":
+                    self.help_modal.close()
+                continue
+
+            # Array modal consumes all other events when open
             if self.array_modal.is_open():
                 result = self.array_modal.handle_event(event)
                 if result:
@@ -276,13 +314,26 @@ class App:
                     viz = self.get_active_visualizer()
                     if not viz.is_running and hasattr(viz, 'step_forward'):
                         viz.step_forward()
+                    self.arrow_held = "right"
+                    self.arrow_timer = pygame.time.get_ticks()
+                    self.arrow_repeating = False
                 elif event.key == pygame.K_LEFT:
                     viz = self.get_active_visualizer()
                     if not viz.is_running and hasattr(viz, 'step_backward'):
                         viz.step_backward()
+                    self.arrow_held = "left"
+                    self.arrow_timer = pygame.time.get_ticks()
+                    self.arrow_repeating = False
                 elif event.key == pygame.K_c:
                     if self.tab_bar.get_active_tab() == "Sorting":
                         self._open_custom_modal()
+                elif event.key == pygame.K_h:
+                    self.help_modal.open()
+
+            elif event.type == pygame.KEYUP:
+                if event.key in (pygame.K_RIGHT, pygame.K_LEFT):
+                    self.arrow_held = None
+                    self.arrow_repeating = False
 
             self.tab_bar.handle_event(event)
 
@@ -309,9 +360,28 @@ class App:
                 if self.tab_bar.get_active_tab() == "Sorting":
                     self._open_custom_modal()
 
+            if self.help_button.handle_event(event):
+                self.help_modal.open()
+
             viz.handle_event(event)
 
     def update(self):
+        # Continuous arrow key stepping
+        if self.arrow_held and not self.array_modal.is_open() and not self.help_modal.is_open():
+            viz = self.get_active_visualizer()
+            if not viz.is_running:
+                now = pygame.time.get_ticks()
+                elapsed = now - self.arrow_timer
+                if not self.arrow_repeating:
+                    if elapsed >= self.arrow_initial_delay:
+                        self.arrow_repeating = True
+                        self.arrow_timer = now
+                        self._do_arrow_step()
+                else:
+                    if elapsed >= self.arrow_repeat_interval:
+                        self.arrow_timer = now
+                        self._do_arrow_step()
+
         # Modal backspace repeat (must run every frame when modal is open)
         if self.array_modal.is_open():
             self.array_modal.update()
@@ -396,9 +466,11 @@ class App:
         self._draw_divider(self.div3_x)
         self.size_group.draw(self.screen)
         self.custom_button.draw(self.screen)
+        self.help_button.draw(self.screen)
 
-        # Modal overlay (drawn last, on top of everything)
+        # Modal overlays (drawn last, on top of everything)
         self.array_modal.draw(self.screen)
+        self.help_modal.draw(self.screen)
 
         pygame.display.flip()
 

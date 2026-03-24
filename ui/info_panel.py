@@ -163,7 +163,6 @@ class InfoPanel:
         row_sp = 29
         stat_sp = 33
         legend_sp = 33
-        ctrl_sp = 29
         var_sp = 27
         code_line_h = 18
         bottom_pad = 18
@@ -176,46 +175,24 @@ class InfoPanel:
         # --- Fixed card heights ---
         algo_rows = 5
         stats_rows = 3
-        controls = [
-            ("[Space]", "Play / Pause"),
-            ("[R]", "Reset"),
-            ("\u2190/\u2192", "Step Back / Forward"),
-        ]
 
         card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
 
-        # Fix 1: LIVE STATS — fixed height, always reserves 2 status text lines
+        # LIVE STATS — fixed height, always reserves 2 status text lines
         card2_h = card_pad + header_h + stats_rows * stat_sp + 2 * 24 + bottom_pad
 
-        # Fix 2: PSEUDOCODE — fixed height based on longest algorithm (Quick Sort = 13 lines)
+        # PSEUDOCODE — fixed height based on longest algorithm (Quick Sort = 13 lines)
         pc_data = PSEUDOCODE.get(self.algorithm_key)
         max_pc_lines = max(len(v["lines"]) for v in PSEUDOCODE.values())
         card_pseudo_h = card_pad + header_h + max_pc_lines * code_line_h + bottom_pad
-
-        # Controls card (fixed)
-        card_ctrl_h = card_pad + header_h + len(controls) * ctrl_sp + bottom_pad
 
         # Variables card (desired height, may be clamped)
         has_vars = bool(self.current_pointers)
         var_count = len(self._cached_var_lines) if has_vars else 0
         card_vars_h = card_pad + header_h + var_count * var_sp + bottom_pad if has_vars else 0
 
-        # --- Draw CONTROLS card anchored to bottom ---
-        ctrl_y = self.rect.bottom - self.padding - card_ctrl_h
-        self._draw_card(surface, px, ctrl_y, card_width, card_ctrl_h)
-        cx = px + card_pad
-        cy = ctrl_y + card_pad
-
-        header_surf = self.font_section.render("CONTROLS", True, Colors.TEXT_ACCENT)
-        surface.blit(header_surf, (cx, cy))
-        cy += header_h
-
-        for key, desc in controls:
-            key_surf = self.font_label.render(key, True, Colors.TEXT_ACCENT)
-            desc_surf = self.font_label.render(desc, True, Colors.TEXT_SECONDARY)
-            surface.blit(key_surf, (cx, cy))
-            surface.blit(desc_surf, (cx + key_surf.get_width() + 12, cy))
-            cy += ctrl_sp
+        # Bottom limit for cards
+        panel_bottom = self.rect.bottom - self.padding
 
         # --- Draw top-down cards ---
         py = self.rect.y + self.padding
@@ -309,8 +286,8 @@ class InfoPanel:
 
         py += card_pseudo_h + card_gap
 
-        # --- Fix 3: Remaining space check — nothing draws below ctrl_y ---
-        remaining = ctrl_y - py - card_gap
+        # --- Remaining space check ---
+        remaining = panel_bottom - py - card_gap
 
         if has_vars and remaining >= 60:
             # --- Card: Variables (clamped to remaining space) ---

@@ -187,15 +187,15 @@ class SortingVisualizer(BaseVisualizer):
         self.history_index = len(self.history) - 1
 
     def step_forward(self):
-        """Step forward one frame (arrow key). Uses cache if available, else advances generator."""
-        if self.is_complete:
-            return
+        """Step forward one frame. Replays cache if available, else advances generator."""
         if self.history_index < len(self.history) - 1:
-            # Replay from cache — generator stays untouched
+            # Replay from cache — we've been here before
             self.history_index += 1
             self._load_snapshot(self.history_index)
         else:
-            # At the end of cache — advance the generator to produce a new step
+            # At the frontier — try to generate a new step
+            if self.is_complete:
+                return  # Algorithm truly finished, nothing more to generate
             if self.generator is None:
                 self.start()
                 self.is_running = False  # stay paused
@@ -206,6 +206,7 @@ class SortingVisualizer(BaseVisualizer):
         if self.history_index > 0:
             self.history_index -= 1
             self._load_snapshot(self.history_index)
+            self.is_complete = False  # No longer at the end
 
     def _load_snapshot(self, index):
         """Restore visualizer state from a history snapshot."""
