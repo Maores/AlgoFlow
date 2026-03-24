@@ -215,9 +215,12 @@ class App:
         # Track right edge of control bar content for hint collision check
         self.control_content_right = self.custom_button.rect.right
 
-        # Help button — anchored to far right of canvas area
+        # Help button — bottom-right corner, vertically centered in control bar
         help_right_margin = 14
-        self.help_button.rect.topright = (self.canvas_rect.width - help_right_margin, btn_y + 1)
+        self.help_button.rect.topright = (
+            w - help_right_margin,
+            self.control_y + (CONTROL_PANEL_HEIGHT - self.help_button.rect.height) // 2
+        )
 
         # Keep modals centered on resize
         self.array_modal.resize(w, h)
