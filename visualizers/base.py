@@ -63,7 +63,15 @@ class BaseVisualizer(ABC):
         if self.is_complete:
             self.reset()
         self.is_running = not self.is_running
-    
+
+    def step_forward(self):
+        """Advance one step. Override in subclasses for time-travel support."""
+        self.step()
+
+    def step_backward(self):
+        """Go back one step. Override in subclasses for time-travel support."""
+        pass
+
     def set_speed(self, speed):
         """Set animation speed (0-100)."""
         self.speed = max(0, min(100, speed))
