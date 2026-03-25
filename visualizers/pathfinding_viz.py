@@ -287,14 +287,159 @@ class PathfindingVisualizer(BaseVisualizer):
             self.is_dragging = False
             self._drag_action = None
 
-    def step(self):
-        """Advance the algorithm by one step. Implemented in Task 11."""
-        pass
+    # ------------------------------------------------------------------
+    # Algorithm execution helpers
+    # ------------------------------------------------------------------
+
+    def _create_generator(self):
+        """Create a fresh algorithm generator from the current grid state."""
+        from algorithms.pathfinding import bfs, dfs, dijkstra, astar
+        algo_map = {
+            "BFS": bfs,
+            "DFS": dfs,
+            "Dijkstra": dijkstra,
+            "A*": astar,
+        }
+        algo_func = algo_map.get(self.algorithm_key, bfs)
+        return algo_func(self.grid, self.start, self.end)
+
+    def _take_snapshot(self):
+        """Snapshot current state for history."""
+        import copy
+        return {
+            "cell_states": copy.deepcopy(self.cell_states),
+            "cells_explored": self.cells_explored,
+            "frontier_size": self.frontier_size,
+            "path_length": self.path_length,
+            "total_cost": self.total_cost,
+            "current_status": self.current_status,
+            "current_op_type": self.current_op_type,
+        }
+
+    def _restore_snapshot(self, snapshot):
+        """Restore state from a history entry."""
+        self.cell_states = snapshot["cell_states"]
+        self.cells_explored = snapshot["cells_explored"]
+        self.frontier_size = snapshot["frontier_size"]
+        self.path_length = snapshot["path_length"]
+        self.total_cost = snapshot["total_cost"]
+        self.current_status = snapshot["current_status"]
+        self.current_op_type = snapshot["current_op_type"]
+
+    def _apply_operation(self, op):
+        """Apply a yielded operation to the visual state."""
+        op_type, cell, msg, data = op
+        self.current_op_type = op_type
+        self.current_status = msg
+
+        if op_type == "frontier":
+            r, c = cell
+            if (r, c) != self.start and (r, c) != self.end:
+                self.cell_states[r][c] = "frontier"
+            self.frontier_size += 1
+
+        elif op_type == "visit":
+            r, c = cell
+            if (r, c) != self.start and (r, c) != self.end:
+                self.cell_states[r][c] = "visited"
+            self.cells_explored += 1
+            self.frontier_size = max(0, self.frontier_size - 1)
+
+        elif op_type == "update":
+            pass  # Cell stays "frontier", just data changed
+
+        elif op_type == "path":
+            r, c = cell
+            self.cell_states[r][c] = "path"
+            self.path_length = data.get("path_length", 0)
+
+        elif op_type == "done":
+            self.path_length = data.get("path_length", 0)
+            self.total_cost = data.get("total_cost", 0)
+            self.is_complete = True
+
+        elif op_type == "no_path":
+            self.is_complete = True
+
+    # ------------------------------------------------------------------
+    # Step / playback controls
+    # ------------------------------------------------------------------
 
     def step_forward(self):
-        """Advance one step with history support. Implemented in Task 11."""
-        pass
+        """Advance one step, with time-travel support."""
+        if self.is_complete:
+            return
+
+        # If we can replay from history
+        if self.history_index < len(self.history) - 1:
+            self.history_index += 1
+            self._restore_snapshot(self.history[self.history_index])
+            return
+
+        # Otherwise consume next from generator
+        if self.generator is None:
+            return
+
+        try:
+            op = next(self.generator)
+            self._apply_operation(op)
+            self.step_count += 1
+            self.editing_locked = True
+            # Take snapshot and append
+            snapshot = self._take_snapshot()
+            self.history.append(snapshot)
+            self.history_index = len(self.history) - 1
+        except StopIteration:
+            self.is_complete = True
+            self.is_running = False
 
     def step_backward(self):
-        """Rewind one step. Implemented in Task 11."""
-        pass
+        """Go back one step using history."""
+        if self.history_index > 0:
+            self.history_index -= 1
+            import copy
+            self._restore_snapshot(copy.deepcopy(self.history[self.history_index]))
+            self.is_complete = False
+        elif self.history_index == 0:
+            # Go back to initial state (before any steps)
+            self.history_index = -1
+            self._update_cell_states()
+            self.cells_explored = 0
+            self.frontier_size = 0
+            self.path_length = 0
+            self.total_cost = 0
+            self.current_status = ""
+            self.current_op_type = ""
+            self.is_complete = False
+
+    def step(self):
+        """Auto-advance — called by game loop when is_running is True."""
+        self.step_forward()
+        if self.is_complete:
+            self.is_running = False
+
+    def start(self):
+        """Start algorithm execution."""
+        if self.generator is None:
+            self.generator = self._create_generator()
+            self.editing_locked = True
+        super().start()
+
+    def toggle(self):
+        """Toggle play/pause. If complete, reset first."""
+        if self.is_complete:
+            self.reset()
+        if self.generator is None:
+            self.generator = self._create_generator()
+            self.editing_locked = True
+        super().toggle()
+
+    def set_algorithm(self, key):
+        """Set the active algorithm and reset."""
+        self.algorithm_key = key
+        self.reset()
+
+    def set_grid_size(self, size_key):
+        """Resize the grid and reset."""
+        self._init_grid(size_key)
+        self.reset()
