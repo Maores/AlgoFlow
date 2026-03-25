@@ -14,6 +14,7 @@ from config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TITLE, FONT_FAMILY,
     HEADER_HEIGHT, CONTROL_PANEL_HEIGHT, INFO_PANEL_WIDTH,
     SIZE_OPTIONS, DEFAULT_ARRAY_SIZE,
+    GRID_SIZE_OPTIONS, DEFAULT_GRID_SIZE,
     BASE_SPEED,
     Colors
 )
@@ -52,6 +53,9 @@ class App:
         # Header with branding + tabs
         self.tab_bar = TabBar(WINDOW_WIDTH)
 
+        # Track active tab for detecting tab switches
+        self._active_tab = self.tab_bar.get_active_tab()
+
         # Canvas area (between header and control bar, left of info panel)
         canvas_y = HEADER_HEIGHT
         canvas_h = WINDOW_HEIGHT - HEADER_HEIGHT - CONTROL_PANEL_HEIGHT
@@ -76,6 +80,8 @@ class App:
         control_y = WINDOW_HEIGHT - CONTROL_PANEL_HEIGHT
         btn_h = 51
         btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
+
+        # ==================== Sorting control bar widgets ====================
 
         # Start/Pause button (no unicode icons — avoids glyph rendering artifacts)
         self.start_button = Button(21, btn_y, 144, btn_h, "Start", self.font_small)
@@ -117,6 +123,50 @@ class App:
 
         # Help modal
         self.help_modal = HelpModal(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+        # ==================== Pathfinding control bar widgets ====================
+
+        self.pf_start_btn = Button(21, btn_y, 144, btn_h, "Start", self.font_small)
+        self.pf_reset_btn = Button(174, btn_y, 114, btn_h, "Reset", self.font_small)
+
+        self.pf_speed_slider = Slider(
+            0, 0, 180, min_val=0.1, max_val=4.0, initial_val=1.0, label="Speed:"
+        )
+
+        self.pf_algo_group = ButtonGroup(
+            0, btn_y + 1, ["BFS", "DFS", "Dijkstra", "A*"], self.font_small, active_index=0
+        )
+
+        pf_size_default_idx = GRID_SIZE_OPTIONS.index(DEFAULT_GRID_SIZE)
+        self.pf_size_group = ButtonGroup(
+            0, btn_y + 1, ["Small", "Medium", "Large"], self.font_small, active_index=pf_size_default_idx
+        )
+
+        self.pf_preset_group = ButtonGroup(
+            0, btn_y + 1, ["Random", "Maze", "Spiral", "Weighted", "Bottleneck"],
+            self.font_small, active_index=0
+        )
+        self.pf_preset_group.deselect_all()
+
+        clear_w = self.font_small.size("Clear")[0] + 36
+        self.pf_clear_btn = Button(
+            0, btn_y + 1, clear_w, 48, "Clear", self.font_small,
+            text_color=Colors.TEXT_ACCENT
+        )
+
+        pf_help_w = self.font_small.size("Help")[0] + 36
+        self.pf_help_btn = Button(0, btn_y, pf_help_w, btn_h, "Help", self.font_small,
+                                  text_color=Colors.TEXT_ACCENT)
+
+        self.pf_edit_mode_group = ButtonGroup(
+            0, 0, ["Wall", "Weight", "Start", "End"], self.font_small, active_index=0
+        )
+
+        # Pathfinding divider positions (set by _rebuild_layout)
+        self.pf_div1_x = 0
+        self.pf_div2_x = 0
+        self.pf_div3_x = 0
+        self.pf_div4_x = 0
 
         # Arrow key repeat state
         self.arrow_held = None           # "right" or "left" or None
@@ -176,6 +226,20 @@ class App:
         btn_h = 51
         btn_y = control_y + (CONTROL_PANEL_HEIGHT - btn_h) // 2
         gap = 21
+
+        tab = self.tab_bar.get_active_tab()
+
+        if tab == "Sorting":
+            self._layout_sorting_controls(btn_y, gap, w)
+        elif tab == "Pathfinding":
+            self._layout_pathfinding_controls(btn_y, gap, w)
+
+        # Keep modals centered on resize
+        self.array_modal.resize(w, h)
+        self.help_modal.resize(w, h)
+
+    def _layout_sorting_controls(self, btn_y, gap, w):
+        """Position all sorting control bar widgets."""
         x = 21
 
         # Reposition control bar components sequentially (x-accumulation)
@@ -191,7 +255,7 @@ class App:
         # Speed slider — label is auto-drawn by Slider to the left of track
         speed_label_w = self.font_small.size("Speed:")[0] + 14
         slider_x = x + speed_label_w
-        slider_y = control_y + CONTROL_PANEL_HEIGHT // 2
+        slider_y = self.control_y + CONTROL_PANEL_HEIGHT // 2
         self.speed_slider.set_position(slider_x, slider_y, 180)
         x += speed_label_w + 180 + gap
 
@@ -222,17 +286,88 @@ class App:
             self.control_y + (CONTROL_PANEL_HEIGHT - self.help_button.rect.height) // 2
         )
 
-        # Keep modals centered on resize
-        self.array_modal.resize(w, h)
-        self.help_modal.resize(w, h)
+    def _layout_pathfinding_controls(self, btn_y, gap, w):
+        """Position all pathfinding control bar widgets."""
+        x = 21
+
+        self.pf_start_btn.rect.topleft = (x, btn_y)
+        x += self.pf_start_btn.rect.width + 9
+
+        self.pf_reset_btn.rect.topleft = (x, btn_y)
+        x += self.pf_reset_btn.rect.width + gap
+
+        self.pf_div1_x = x
+        x += gap
+
+        # Speed slider
+        speed_label_w = self.font_small.size("Speed:")[0] + 14
+        slider_x = x + speed_label_w
+        slider_y = self.control_y + CONTROL_PANEL_HEIGHT // 2
+        self.pf_speed_slider.set_position(slider_x, slider_y, 180)
+        x += speed_label_w + 180 + gap
+
+        self.pf_div2_x = x
+        x += gap
+
+        # Algo group
+        self.pf_algo_group.set_position(x, btn_y + 1)
+        algo_width = sum(b.rect.width for b in self.pf_algo_group.buttons) + 5 * (len(self.pf_algo_group.buttons) - 1)
+        x += algo_width + gap
+
+        self.pf_div3_x = x
+        x += gap
+
+        # Size group
+        self.pf_size_group.set_position(x, btn_y + 1)
+        size_width = sum(b.rect.width for b in self.pf_size_group.buttons) + 5 * (len(self.pf_size_group.buttons) - 1)
+        x += size_width + gap
+
+        self.pf_div4_x = x
+        x += gap
+
+        # Preset group
+        self.pf_preset_group.set_position(x, btn_y + 1)
+        preset_width = sum(b.rect.width for b in self.pf_preset_group.buttons) + 5 * (len(self.pf_preset_group.buttons) - 1)
+        x += preset_width + 12
+
+        # Clear button
+        self.pf_clear_btn.rect.topleft = (x, btn_y + 1)
+
+        # Help button — right-anchored
+        help_right_margin = 14
+        self.pf_help_btn.rect.topright = (
+            w - help_right_margin,
+            self.control_y + (CONTROL_PANEL_HEIGHT - self.pf_help_btn.rect.height) // 2
+        )
+
+        # Edit mode group — just below the header bar
+        canvas_left = self.canvas_rect.x
+        edit_x = canvas_left + 12
+        edit_y = HEADER_HEIGHT + 4
+        self.pf_edit_mode_group.set_position(edit_x, edit_y)
 
     def _update_info_panel(self):
-        viz = self.visualizers.get("Sorting")
-        if viz and hasattr(viz, "get_algorithm_info"):
-            info = viz.get_algorithm_info()
-            self.info_panel.set_algorithm_info(info)
+        tab = self.tab_bar.get_active_tab()
+        viz = self.get_active_visualizer()
+        if tab == "Sorting":
+            if hasattr(viz, 'get_algorithm_info'):
+                self.info_panel.set_algorithm_info(viz.get_algorithm_info())
             self.info_panel.set_pseudocode_state(
                 viz.algorithm_key, getattr(viz, "current_op_type", "")
+            )
+        elif tab == "Pathfinding":
+            if hasattr(viz, 'get_algorithm_info'):
+                self.info_panel.set_algorithm_info(viz.get_algorithm_info())
+            self.info_panel.set_stats({
+                "tab": "pathfinding",
+                "cells_explored": viz.cells_explored,
+                "frontier_size": getattr(viz, 'frontier_size', 0),
+                "path_length": viz.path_length,
+                "total_cost": viz.total_cost,
+                "status": viz.get_status() if hasattr(viz, 'get_status') else ""
+            })
+            self.info_panel.set_pseudocode_state(
+                viz.algorithm_key, getattr(viz, 'current_op_type', '')
             )
 
     def get_active_visualizer(self):
@@ -264,6 +399,31 @@ class App:
         else:
             self.size_group.deselect_all()
         self._update_info_panel()
+
+    def _on_tab_switch(self, new_tab):
+        """Handle tab switch — update legend, info panel, and layout."""
+        self._active_tab = new_tab
+        self._rebuild_layout(self.width, self.height)
+        self._update_info_panel()
+
+        if new_tab == "Sorting":
+            self.info_panel.set_legend([
+                (Colors.BAR_DEFAULT, "Default"),
+                (Colors.BAR_COMPARING, "Comparing"),
+                (Colors.BAR_SWAPPING, "Swapping"),
+                (Colors.BAR_SORTED, "Sorted"),
+                (Colors.BAR_PIVOT, "Pivot"),
+            ])
+        elif new_tab == "Pathfinding":
+            self.info_panel.set_legend([
+                (Colors.GRID_START, "Start"),
+                (Colors.GRID_END, "End"),
+                (Colors.GRID_WALL, "Wall"),
+                (Colors.GRID_WEIGHTED, "Weighted"),
+                (Colors.GRID_FRONTIER, "Frontier"),
+                (Colors.GRID_VISITED, "Visited"),
+                (Colors.GRID_PATH, "Path"),
+            ])
 
     def _do_arrow_step(self):
         """Execute one arrow-key step in the held direction."""
@@ -335,33 +495,73 @@ class App:
                     self.arrow_held = None
                     self.arrow_repeating = False
 
-            self.tab_bar.handle_event(event)
+            # Tab bar — detect tab switches
+            tab_changed = self.tab_bar.handle_event(event)
+            if tab_changed:
+                new_tab = self.tab_bar.get_active_tab()
+                self._on_tab_switch(new_tab)
 
+            tab = self.tab_bar.get_active_tab()
             viz = self.get_active_visualizer()
 
-            if self.start_button.handle_event(event):
-                viz.toggle()
+            if tab == "Sorting":
+                # --- Sorting control bar events ---
+                if self.start_button.handle_event(event):
+                    viz.toggle()
 
-            if self.reset_button.handle_event(event):
-                viz.reset()
+                if self.reset_button.handle_event(event):
+                    viz.reset()
 
-            self.speed_slider.handle_event(event)
+                self.speed_slider.handle_event(event)
 
-            algo_change = self.algo_group.handle_event(event)
-            if algo_change and hasattr(viz, "set_algorithm"):
-                viz.set_algorithm(algo_change)
-                self._update_info_panel()
+                algo_change = self.algo_group.handle_event(event)
+                if algo_change and hasattr(viz, "set_algorithm"):
+                    viz.set_algorithm(algo_change)
+                    self._update_info_panel()
 
-            size_change = self.size_group.handle_event(event)
-            if size_change and hasattr(viz, "set_array_size"):
-                viz.set_array_size(int(size_change))
+                size_change = self.size_group.handle_event(event)
+                if size_change and hasattr(viz, "set_array_size"):
+                    viz.set_array_size(int(size_change))
 
-            if self.custom_button.handle_event(event):
-                if self.tab_bar.get_active_tab() == "Sorting":
+                if self.custom_button.handle_event(event):
                     self._open_custom_modal()
 
-            if self.help_button.handle_event(event):
-                self.help_modal.open()
+                if self.help_button.handle_event(event):
+                    self.help_modal.open()
+
+            elif tab == "Pathfinding":
+                # --- Pathfinding control bar events ---
+                if self.pf_start_btn.handle_event(event):
+                    viz.toggle()
+
+                if self.pf_reset_btn.handle_event(event):
+                    viz.reset()
+
+                self.pf_speed_slider.handle_event(event)
+
+                algo_change = self.pf_algo_group.handle_event(event)
+                if algo_change and hasattr(viz, "set_algorithm"):
+                    viz.set_algorithm(algo_change)
+                    self._update_info_panel()
+
+                size_change = self.pf_size_group.handle_event(event)
+                if size_change and hasattr(viz, "set_grid_size"):
+                    viz.set_grid_size(size_change)
+
+                preset_change = self.pf_preset_group.handle_event(event)
+                if preset_change:
+                    if hasattr(viz, "load_preset"):
+                        viz.load_preset(preset_change)
+
+                if self.pf_clear_btn.handle_event(event):
+                    viz.clear_grid()
+
+                edit_change = self.pf_edit_mode_group.handle_event(event)
+                if edit_change:
+                    viz.edit_mode = edit_change.lower()
+
+                if self.pf_help_btn.handle_event(event):
+                    self.help_modal.open()
 
             viz.handle_event(event)
 
@@ -386,10 +586,17 @@ class App:
         if self.array_modal.is_open():
             self.array_modal.update()
 
+        tab = self.tab_bar.get_active_tab()
         viz = self.get_active_visualizer()
+
         if viz.is_running and not viz.is_complete:
+            # Use the correct speed slider depending on active tab
+            if tab == "Pathfinding":
+                multiplier = self.pf_speed_slider.get_value()
+            else:
+                multiplier = self.speed_slider.get_value()
+
             # Continuous speed: BASE_SPEED * slider multiplier
-            multiplier = self.speed_slider.get_value()
             dt = self.clock.get_time() / 1000.0
             ops_per_second = BASE_SPEED * multiplier
             self.step_accumulator += ops_per_second * dt
@@ -402,28 +609,39 @@ class App:
             # Cap accumulator to avoid burst after pause/lag
             self.step_accumulator = min(self.step_accumulator, 5.0)
 
-        # Update info panel stats
-        if hasattr(viz, "get_status"):
-            self.info_panel.set_stats({
-                "tab": "sorting",
-                "comparisons": getattr(viz, "comparisons", 0),
-                "swaps": getattr(viz, "swaps", 0),
-                "status": viz.get_status() if hasattr(viz, "get_status") else "",
-            })
+        # Update info panel stats — tab-aware
+        if tab == "Sorting":
+            if hasattr(viz, "get_status"):
+                self.info_panel.set_stats({
+                    "tab": "sorting",
+                    "comparisons": getattr(viz, "comparisons", 0),
+                    "swaps": getattr(viz, "swaps", 0),
+                    "status": viz.get_status() if hasattr(viz, "get_status") else "",
+                })
 
-        # Pass pointer/array data for variables panel
-        if hasattr(viz, "current_pointers"):
-            self.info_panel.set_variables(viz.current_pointers, viz.array)
+            # Pass pointer/array data for variables panel
+            if hasattr(viz, "current_pointers"):
+                self.info_panel.set_variables(viz.current_pointers, viz.array)
+
+        elif tab == "Pathfinding":
+            self.info_panel.set_stats({
+                "tab": "pathfinding",
+                "cells_explored": viz.cells_explored,
+                "frontier_size": getattr(viz, 'frontier_size', 0),
+                "path_length": viz.path_length,
+                "total_cost": viz.total_cost,
+                "status": viz.get_status() if hasattr(viz, 'get_status') else ""
+            })
 
         # Pass pseudocode state (algorithm key + current op type)
         if hasattr(viz, "current_op_type"):
             self.info_panel.set_pseudocode_state(viz.algorithm_key, viz.current_op_type)
 
         # Update start button text (plain text, no unicode icons)
-        if viz.is_running:
-            self.start_button.text = "Pause"
-        else:
-            self.start_button.text = "Start"
+        if tab == "Sorting":
+            self.start_button.text = "Pause" if viz.is_running else "Start"
+        elif tab == "Pathfinding":
+            self.pf_start_btn.text = "Pause" if viz.is_running else "Start"
 
     def _draw_divider(self, x):
         """Draw a subtle vertical divider in the control bar."""
@@ -456,18 +674,38 @@ class App:
             (0, self.control_y), (screen_w, self.control_y), 1
         )
 
-        # Control bar components
-        self.start_button.draw(self.screen)
-        self.reset_button.draw(self.screen)
-        self._draw_divider(self.div1_x)
-        # Speed slider (draws its own "Speed:" label)
-        self.speed_slider.draw(self.screen, self.font_small)
-        self._draw_divider(self.div2_x)
-        self.algo_group.draw(self.screen)
-        self._draw_divider(self.div3_x)
-        self.size_group.draw(self.screen)
-        self.custom_button.draw(self.screen)
-        self.help_button.draw(self.screen)
+        tab = self.tab_bar.get_active_tab()
+
+        if tab == "Sorting":
+            # Sorting control bar components
+            self.start_button.draw(self.screen)
+            self.reset_button.draw(self.screen)
+            self._draw_divider(self.div1_x)
+            # Speed slider (draws its own "Speed:" label)
+            self.speed_slider.draw(self.screen, self.font_small)
+            self._draw_divider(self.div2_x)
+            self.algo_group.draw(self.screen)
+            self._draw_divider(self.div3_x)
+            self.size_group.draw(self.screen)
+            self.custom_button.draw(self.screen)
+            self.help_button.draw(self.screen)
+
+        elif tab == "Pathfinding":
+            # Pathfinding control bar components
+            self.pf_start_btn.draw(self.screen)
+            self.pf_reset_btn.draw(self.screen)
+            self._draw_divider(self.pf_div1_x)
+            self.pf_speed_slider.draw(self.screen, self.font_small)
+            self._draw_divider(self.pf_div2_x)
+            self.pf_algo_group.draw(self.screen)
+            self._draw_divider(self.pf_div3_x)
+            self.pf_size_group.draw(self.screen)
+            self._draw_divider(self.pf_div4_x)
+            self.pf_preset_group.draw(self.screen)
+            self.pf_clear_btn.draw(self.screen)
+            self.pf_help_btn.draw(self.screen)
+            # Edit mode toolbar above the canvas
+            self.pf_edit_mode_group.draw(self.screen)
 
         # Modal overlays (drawn last, on top of everything)
         self.array_modal.draw(self.screen)
