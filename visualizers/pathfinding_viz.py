@@ -57,6 +57,7 @@ class PathfindingVisualizer(BaseVisualizer):
         self.edit_mode      = "wall"
         self.editing_locked = False
         self.is_dragging    = False
+        self._drag_action   = None
 
         # Data / animation overlays (populated in later tasks)
         self.cell_data    = None
@@ -202,12 +203,89 @@ class PathfindingVisualizer(BaseVisualizer):
         surface.blit(surf, surf.get_rect(center=rect.center))
 
     # ------------------------------------------------------------------
+    # Grid interaction helpers
+    # ------------------------------------------------------------------
+
+    def _pixel_to_cell(self, x, y):
+        """Convert pixel (x, y) to grid (row, col) or None if outside."""
+        gap = CELL_GAP
+        # Relative to grid origin
+        rx = x - self.offset_x
+        ry = y - self.offset_y
+        if rx < 0 or ry < 0:
+            return None
+        col = int(rx / (self.cell_size + gap))
+        row = int(ry / (self.cell_size + gap))
+        if row < 0 or row >= self.grid_rows or col < 0 or col >= self.grid_cols:
+            return None
+        # Check we're actually inside the cell, not in the gap
+        cell_x = col * (self.cell_size + gap)
+        cell_y = row * (self.cell_size + gap)
+        if rx - cell_x > self.cell_size or ry - cell_y > self.cell_size:
+            return None
+        return (row, col)
+
+    def _apply_edit(self, cell):
+        """Apply the current edit_mode action to the given (row, col) cell."""
+        r, c = cell
+        # Cannot edit start or end cells in wall/weight mode
+        if self.edit_mode in ("wall", "weight") and (cell == self.start or cell == self.end):
+            return
+
+        if self.edit_mode == "wall":
+            if self._drag_action is None:
+                # First cell in drag — determine toggle direction
+                self._drag_action = "remove" if self.grid[r][c] == -1 else "place"
+            if self._drag_action == "place":
+                self.grid[r][c] = -1
+            else:
+                self.grid[r][c] = 1
+
+        elif self.edit_mode == "weight":
+            if self._drag_action is None:
+                self._drag_action = "remove" if self.grid[r][c] > 1 else "place"
+            if self._drag_action == "place":
+                self.grid[r][c] = WEIGHT_COST
+            else:
+                self.grid[r][c] = 1
+
+        elif self.edit_mode == "start":
+            if cell != self.end:
+                self.start = cell
+                # Clear wall/weight at new start
+                self.grid[cell[0]][cell[1]] = 1
+
+        elif self.edit_mode == "end":
+            if cell != self.start:
+                self.end = cell
+                self.grid[cell[0]][cell[1]] = 1
+
+        self._update_cell_states()
+
+    # ------------------------------------------------------------------
     # Stubs — implemented in later tasks
     # ------------------------------------------------------------------
 
     def handle_event(self, event):
-        """Handle mouse / keyboard input. Implemented in Task 10."""
-        pass
+        """Handle mouse / keyboard input."""
+        if self.editing_locked:
+            return
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            cell = self._pixel_to_cell(event.pos[0], event.pos[1])
+            if cell is not None:
+                self.is_dragging = True
+                self._drag_action = None  # Will be set on first drag
+                self._apply_edit(cell)
+
+        elif event.type == pygame.MOUSEMOTION and self.is_dragging:
+            cell = self._pixel_to_cell(event.pos[0], event.pos[1])
+            if cell is not None:
+                self._apply_edit(cell)
+
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.is_dragging = False
+            self._drag_action = None
 
     def step(self):
         """Advance the algorithm by one step. Implemented in Task 11."""
