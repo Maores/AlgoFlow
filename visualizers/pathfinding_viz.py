@@ -232,7 +232,11 @@ class PathfindingVisualizer(BaseVisualizer):
                         value = cdata.get("f", "")
                     if value != "" and value is not None:
                         font_size = max(10, int(cell_size // 3))
-                        overlay_font = pygame.font.SysFont(FONT_FAMILY, font_size)
+                        if not hasattr(self, '_font_cache'):
+                            self._font_cache = {}
+                        if font_size not in self._font_cache:
+                            self._font_cache[font_size] = pygame.font.SysFont(FONT_FAMILY, font_size)
+                        overlay_font = self._font_cache[font_size]
                         surf = overlay_font.render(str(value), True, (255, 255, 255))
                         surface.blit(surf, surf.get_rect(center=rect.center))
 
@@ -278,9 +282,9 @@ class PathfindingVisualizer(BaseVisualizer):
     def _pixel_to_cell(self, x, y):
         """Convert pixel (x, y) to grid (row, col) or None if outside."""
         gap = CELL_GAP
-        # Relative to grid origin
-        rx = x - self.offset_x
-        ry = y - self.offset_y
+        # Relative to grid origin (account for leading gap)
+        rx = x - self.offset_x - gap
+        ry = y - self.offset_y - gap
         if rx < 0 or ry < 0:
             return None
         col = int(rx / (self.cell_size + gap))
@@ -457,10 +461,11 @@ class PathfindingVisualizer(BaseVisualizer):
         if self.is_complete:
             return
 
-        # If we can replay from history
+        # If we can replay from history (deep copy to avoid mutation)
         if self.history_index < len(self.history) - 1:
             self.history_index += 1
-            self._restore_snapshot(self.history[self.history_index])
+            import copy
+            self._restore_snapshot(copy.deepcopy(self.history[self.history_index]))
             return
 
         # Otherwise consume next from generator
