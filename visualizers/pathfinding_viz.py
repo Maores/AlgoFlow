@@ -480,3 +480,141 @@ class PathfindingVisualizer(BaseVisualizer):
     def get_status(self):
         """Return current status message."""
         return self.current_status
+
+    # ------------------------------------------------------------------
+    # Maze preset generators
+    # ------------------------------------------------------------------
+
+    def load_preset(self, preset_key):
+        """Generate a preset grid pattern."""
+        self.reset()
+        self._clear_grid_data()
+
+        generators = {
+            "Random": self._generate_random_walls,
+            "Maze": self._generate_recursive_maze,
+            "Spiral": self._generate_spiral,
+            "Weighted": self._generate_weighted_field,
+            "Bottleneck": self._generate_bottleneck,
+        }
+        gen_func = generators.get(preset_key)
+        if gen_func is None:
+            return
+
+        gen_func()
+
+        # Place start top-left area, end bottom-right area
+        self.start = (0, 0)
+        self.end = (self.grid_rows - 1, self.grid_cols - 1)
+        # Make sure start/end aren't walls
+        self.grid[self.start[0]][self.start[1]] = 1
+        self.grid[self.end[0]][self.end[1]] = 1
+        self._update_cell_states()
+
+        # Validate path exists, retry up to 10 times
+        for _ in range(10):
+            if self._has_valid_path():
+                break
+            self._clear_grid_data()
+            gen_func()
+            self.grid[self.start[0]][self.start[1]] = 1
+            self.grid[self.end[0]][self.end[1]] = 1
+            self._update_cell_states()
+
+    def _clear_grid_data(self):
+        """Reset grid data to all empty (cost 1). Does not reset algorithm state."""
+        self.grid = [[1] * self.grid_cols for _ in range(self.grid_rows)]
+
+    def _has_valid_path(self):
+        """Check if a path exists from start to end using simple BFS."""
+        from collections import deque
+        rows, cols = self.grid_rows, self.grid_cols
+        visited = set()
+        queue = deque([self.start])
+        visited.add(self.start)
+        while queue:
+            r, c = queue.popleft()
+            if (r, c) == self.end:
+                return True
+            for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and (nr, nc) not in visited and self.grid[nr][nc] != -1:
+                    visited.add((nr, nc))
+                    queue.append((nr, nc))
+        return False
+
+    def _generate_random_walls(self):
+        """Randomly set ~25% of cells to walls."""
+        import random
+        for r in range(self.grid_rows):
+            for c in range(self.grid_cols):
+                if random.random() < 0.25:
+                    self.grid[r][c] = -1
+
+    def _generate_recursive_maze(self):
+        """Generate maze using recursive backtracking."""
+        import random
+        rows, cols = self.grid_rows, self.grid_cols
+        # Fill with walls
+        self.grid = [[-1] * cols for _ in range(rows)]
+
+        def carve(r, c):
+            self.grid[r][c] = 1
+            directions = [(0, 2), (2, 0), (0, -2), (-2, 0)]
+            random.shuffle(directions)
+            for dr, dc in directions:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and self.grid[nr][nc] == -1:
+                    # Carve the wall between current and next
+                    self.grid[r + dr // 2][c + dc // 2] = 1
+                    carve(nr, nc)
+
+        # Start carving from (0, 0) — ensure it starts on an even cell
+        carve(0, 0)
+
+    def _generate_spiral(self):
+        """Create walls in a spiral pattern."""
+        rows, cols = self.grid_rows, self.grid_cols
+        for r in range(rows):
+            for c in range(cols):
+                # Create concentric rectangular walls with gaps
+                layer = min(r, c, rows - 1 - r, cols - 1 - c)
+                if layer % 2 == 1:
+                    # Wall layer — but leave a gap for passage
+                    if layer % 4 == 1:
+                        # Gap on right side
+                        if c != cols - 1 - layer:
+                            self.grid[r][c] = -1
+                    else:
+                        # Gap on left side
+                        if c != layer:
+                            self.grid[r][c] = -1
+
+    def _generate_weighted_field(self):
+        """Open field with scattered weighted terrain and few walls."""
+        import random
+        from config import WEIGHT_COST
+        for r in range(self.grid_rows):
+            for c in range(self.grid_cols):
+                rnd = random.random()
+                if rnd < 0.05:
+                    self.grid[r][c] = -1  # 5% walls
+                elif rnd < 0.30:
+                    self.grid[r][c] = WEIGHT_COST  # 25% weighted
+
+    def _generate_bottleneck(self):
+        """Create chambers connected by narrow passages."""
+        rows, cols = self.grid_rows, self.grid_cols
+        # Create vertical walls at 1/3 and 2/3 of width
+        wall1_col = cols // 3
+        wall2_col = 2 * cols // 3
+
+        for r in range(rows):
+            self.grid[r][wall1_col] = -1
+            self.grid[r][wall2_col] = -1
+
+        # Cut 1-cell passages
+        gap1 = rows // 3
+        gap2 = 2 * rows // 3
+        self.grid[gap1][wall1_col] = 1
+        self.grid[gap2][wall2_col] = 1
