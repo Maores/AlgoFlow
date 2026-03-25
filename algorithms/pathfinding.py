@@ -14,6 +14,8 @@ Movement: 4-directional (up, down, left, right).
 
 from collections import deque
 
+__all__ = ["bfs", "dfs"]
+
 
 def _neighbors(row, col, rows, cols):
     """Yield valid 4-directional neighbors."""
