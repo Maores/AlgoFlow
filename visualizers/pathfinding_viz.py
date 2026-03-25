@@ -6,6 +6,13 @@ from config import (
     WEIGHT_COST, FONT_FAMILY, FONT_SIZES
 )
 
+PATHFINDING_ALGO_INFO = {
+    "BFS":      {"name": "Breadth-First Search",    "time": "O(V + E)",         "space": "O(V)", "optimal": True},
+    "DFS":      {"name": "Depth-First Search",       "time": "O(V + E)",         "space": "O(V)", "optimal": False},
+    "Dijkstra": {"name": "Dijkstra's Algorithm",     "time": "O((V+E) log V)",   "space": "O(V)", "optimal": True},
+    "A*":       {"name": "A* Search",                "time": "O((V+E) log V)",   "space": "O(V)", "optimal": True},
+}
+
 STATE_COLORS = {
     "empty":    Colors.GRID_EMPTY,
     "wall":     Colors.GRID_WALL,
@@ -89,7 +96,7 @@ class PathfindingVisualizer(BaseVisualizer):
         self.end   = (rows - 1, cols - 1)
 
         self._update_cell_states()
-        self.cell_data    = None
+        self.cell_data    = [[{} for _ in range(cols)] for _ in range(rows)]
         self.flash_timers = None
 
     def _update_cell_states(self):
@@ -134,6 +141,7 @@ class PathfindingVisualizer(BaseVisualizer):
         self.is_running      = False
         self.is_complete     = False
         self.editing_locked  = False
+        self.cell_data = [[{} for _ in range(self.grid_cols)] for _ in range(self.grid_rows)]
 
     def clear_grid(self):
         """Reset the entire grid to empty, then call reset()."""
@@ -191,6 +199,21 @@ class PathfindingVisualizer(BaseVisualizer):
                 elif state == "weighted":
                     cost = self.grid[r][c]
                     self._draw_cell_cost(surface, str(cost), rect)
+
+                # ---- data overlays ----
+                if cell_size >= 30 and state in ("frontier", "visited") and self.cell_data is not None:
+                    cdata = self.cell_data[r][c]
+                    if self.algorithm_key in ("BFS", "DFS"):
+                        value = cdata.get("distance", "")
+                    elif self.algorithm_key == "Dijkstra":
+                        value = cdata.get("cost", "")
+                    else:  # A*
+                        value = cdata.get("f", "")
+                    if value != "" and value is not None:
+                        font_size = max(10, int(cell_size // 3))
+                        overlay_font = pygame.font.SysFont(FONT_FAMILY, font_size)
+                        surf = overlay_font.render(str(value), True, (255, 255, 255))
+                        surface.blit(surf, surf.get_rect(center=rect.center))
 
     def _draw_cell_label(self, surface, text, rect, color):
         """Render a centred bold letter inside a cell rect."""
@@ -308,6 +331,7 @@ class PathfindingVisualizer(BaseVisualizer):
         import copy
         return {
             "cell_states": copy.deepcopy(self.cell_states),
+            "cell_data": copy.deepcopy(self.cell_data),
             "cells_explored": self.cells_explored,
             "frontier_size": self.frontier_size,
             "path_length": self.path_length,
@@ -319,6 +343,7 @@ class PathfindingVisualizer(BaseVisualizer):
     def _restore_snapshot(self, snapshot):
         """Restore state from a history entry."""
         self.cell_states = snapshot["cell_states"]
+        self.cell_data = snapshot["cell_data"]
         self.cells_explored = snapshot["cells_explored"]
         self.frontier_size = snapshot["frontier_size"]
         self.path_length = snapshot["path_length"]
@@ -348,7 +373,11 @@ class PathfindingVisualizer(BaseVisualizer):
         elif op_type == "update":
             pass  # Cell stays "frontier", just data changed
 
-        elif op_type == "path":
+        if op_type in ("frontier", "visit", "update") and isinstance(cell, tuple) and len(cell) == 2:
+            r, c = cell
+            self.cell_data[r][c] = data
+
+        if op_type == "path":
             r, c = cell
             self.cell_states[r][c] = "path"
             self.path_length = data.get("path_length", 0)
@@ -443,3 +472,11 @@ class PathfindingVisualizer(BaseVisualizer):
         """Resize the grid and reset."""
         self._init_grid(size_key)
         self.reset()
+
+    def get_algorithm_info(self):
+        """Return algorithm info dict for the info panel."""
+        return PATHFINDING_ALGO_INFO.get(self.algorithm_key, {})
+
+    def get_status(self):
+        """Return current status message."""
+        return self.current_status
