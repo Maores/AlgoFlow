@@ -143,16 +143,15 @@ class App:
         )
 
         self.pf_preset_group = ButtonGroup(
-            0, btn_y + 1, ["Random", "Maze", "Spiral", "Weighted", "Bottleneck"],
+            0, btn_y + 1, ["Random", "Maze", "Spiral", "Weight", "Bottle"],
             self.font_small, active_index=0
         )
         self.pf_preset_group.deselect_all()
-
-        clear_w = self.font_small.size("Clear")[0] + 36
-        self.pf_clear_btn = Button(
-            0, btn_y + 1, clear_w, 48, "Clear", self.font_small,
-            text_color=Colors.TEXT_ACCENT
-        )
+        # Map short labels back to full preset keys
+        self._preset_label_map = {
+            "Random": "Random", "Maze": "Maze", "Spiral": "Spiral",
+            "Weight": "Weighted", "Bottle": "Bottleneck",
+        }
 
         pf_help_w = self.font_small.size("Help")[0] + 36
         self.pf_help_btn = Button(0, btn_y, pf_help_w, btn_h, "Help", self.font_small,
@@ -328,15 +327,16 @@ class App:
         # Preset group
         self.pf_preset_group.set_position(x, btn_y + 1)
         preset_width = sum(b.rect.width for b in self.pf_preset_group.buttons) + 5 * (len(self.pf_preset_group.buttons) - 1)
-        x += preset_width + 12
+        preset_right = x + preset_width
 
-        # Clear button
-        self.pf_clear_btn.rect.topleft = (x, btn_y + 1)
-
-        # Help button — right-anchored
+        # Help button — right-anchored, but pushed right if presets would overlap
         help_right_margin = 14
+        help_w = self.pf_help_btn.rect.width
+        ideal_right = w - help_right_margin
+        min_right = preset_right + gap + help_w  # minimum to avoid overlap
+        help_right = max(ideal_right, min_right)
         self.pf_help_btn.rect.topright = (
-            w - help_right_margin,
+            help_right,
             self.control_y + (CONTROL_PANEL_HEIGHT - self.pf_help_btn.rect.height) // 2
         )
 
@@ -551,10 +551,8 @@ class App:
                 preset_change = self.pf_preset_group.handle_event(event)
                 if preset_change:
                     if hasattr(viz, "load_preset"):
-                        viz.load_preset(preset_change)
-
-                if self.pf_clear_btn.handle_event(event):
-                    viz.clear_grid()
+                        preset_key = self._preset_label_map.get(preset_change, preset_change)
+                        viz.load_preset(preset_key)
 
                 edit_change = self.pf_edit_mode_group.handle_event(event)
                 if edit_change:
@@ -562,6 +560,16 @@ class App:
 
                 if self.pf_help_btn.handle_event(event):
                     self.help_modal.open()
+
+                # Only forward mouse events to the visualizer if they are
+                # outside the edit toolbar area (prevents accidental wall
+                # placement when clicking Wall/Weight/Start/End buttons).
+                if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
+                    toolbar_btns = self.pf_edit_mode_group.buttons
+                    if toolbar_btns and any(b.rect.collidepoint(event.pos) for b in toolbar_btns):
+                        continue  # skip viz.handle_event for this event
+                viz.handle_event(event)
+                continue
 
             viz.handle_event(event)
 
@@ -702,7 +710,6 @@ class App:
             self.pf_size_group.draw(self.screen)
             self._draw_divider(self.pf_div4_x)
             self.pf_preset_group.draw(self.screen)
-            self.pf_clear_btn.draw(self.screen)
             self.pf_help_btn.draw(self.screen)
             # Edit mode toolbar above the canvas
             self.pf_edit_mode_group.draw(self.screen)

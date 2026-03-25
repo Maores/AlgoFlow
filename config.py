@@ -2,8 +2,8 @@
 # All colors, sizes, and constants in one place
 
 # Window
-WINDOW_WIDTH = 1875
-WINDOW_HEIGHT = 975
+WINDOW_WIDTH = 2400
+WINDOW_HEIGHT = 1350
 FPS = 60
 TITLE = "AlgoFlow"
 FONT_FAMILY = "Segoe UI, Roboto, Arial"

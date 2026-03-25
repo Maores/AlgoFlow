@@ -496,6 +496,8 @@ class PathfindingVisualizer(BaseVisualizer):
             # Go back to initial state (before any steps)
             self.history_index = -1
             self._update_cell_states()
+            self.cell_data = [[{} for _ in range(self.grid_cols)] for _ in range(self.grid_rows)]
+            self.flash_timers = [[0.0] * self.grid_cols for _ in range(self.grid_rows)]
             self.cells_explored = 0
             self.frontier_size = 0
             self.path_length = 0
@@ -503,6 +505,10 @@ class PathfindingVisualizer(BaseVisualizer):
             self.current_status = ""
             self.current_op_type = ""
             self.is_complete = False
+            self.editing_locked = False
+            self.path_cells = []
+            self.path_reveal_index = 0
+            self.path_animating = False
 
     def step(self):
         """Auto-advance — called by game loop when is_running is True."""
@@ -518,13 +524,14 @@ class PathfindingVisualizer(BaseVisualizer):
         super().start()
 
     def toggle(self):
-        """Toggle play/pause. If complete, reset first."""
+        """Toggle play/pause. If complete, reset and restart."""
         if self.is_complete:
             self.reset()
         if self.generator is None:
             self.generator = self._create_generator()
             self.editing_locked = True
-        super().toggle()
+        # Inline toggle instead of super().toggle() to avoid double-reset
+        self.is_running = not self.is_running
 
     def set_algorithm(self, key):
         """Set the active algorithm and reset."""
