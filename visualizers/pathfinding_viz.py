@@ -66,9 +66,14 @@ class PathfindingVisualizer(BaseVisualizer):
         self.is_dragging    = False
         self._drag_action   = None
 
-        # Data / animation overlays (populated in later tasks)
+        # Data / animation overlays
         self.cell_data    = None
         self.flash_timers = None
+
+        # Path traceback animation
+        self.path_cells        = []
+        self.path_reveal_index = 0
+        self.path_animating    = False
 
         # Geometry (computed in draw; stored for interaction code)
         self.cell_size = 0
@@ -97,7 +102,7 @@ class PathfindingVisualizer(BaseVisualizer):
 
         self._update_cell_states()
         self.cell_data    = [[{} for _ in range(cols)] for _ in range(rows)]
-        self.flash_timers = None
+        self.flash_timers = [[0.0] * cols for _ in range(rows)]
 
     def _update_cell_states(self):
         """Rebuild cell_states from grid, start, and end."""
@@ -142,6 +147,10 @@ class PathfindingVisualizer(BaseVisualizer):
         self.is_complete     = False
         self.editing_locked  = False
         self.cell_data = [[{} for _ in range(self.grid_cols)] for _ in range(self.grid_rows)]
+        self.flash_timers = [[0.0] * self.grid_cols for _ in range(self.grid_rows)]
+        self.path_cells        = []
+        self.path_reveal_index = 0
+        self.path_animating    = False
 
     def clear_grid(self):
         """Reset the entire grid to empty, then call reset()."""
@@ -179,11 +188,23 @@ class PathfindingVisualizer(BaseVisualizer):
         self.offset_x = canvas_x + (canvas_w - grid_pixel_w) // 2
         self.offset_y = canvas_y + (canvas_h - grid_pixel_h) // 2
 
+        dt = 1 / 60.0
+
         # ---- draw each cell ----
         for r in range(rows):
             for c in range(cols):
                 state = self.cell_states[r][c]
                 color = STATE_COLORS.get(state, Colors.GRID_EMPTY)
+
+                # ---- flash effect ----
+                if self.flash_timers is not None and self.flash_timers[r][c] > 0:
+                    blend = self.flash_timers[r][c] / 0.2
+                    color = (
+                        min(255, int(color[0] + (255 - color[0]) * 0.5 * blend)),
+                        min(255, int(color[1] + (255 - color[1]) * 0.5 * blend)),
+                        min(255, int(color[2] + (255 - color[2]) * 0.5 * blend)),
+                    )
+                    self.flash_timers[r][c] = max(0.0, self.flash_timers[r][c] - dt)
 
                 x = self.offset_x + gap + c * (cell_size + gap)
                 y = self.offset_y + gap + r * (cell_size + gap)
@@ -214,6 +235,31 @@ class PathfindingVisualizer(BaseVisualizer):
                         overlay_font = pygame.font.SysFont(FONT_FAMILY, font_size)
                         surf = overlay_font.render(str(value), True, (255, 255, 255))
                         surface.blit(surf, surf.get_rect(center=rect.center))
+
+        # ---- path traceback animation ----
+        if self.path_animating:
+            # Advance reveal index by 2 cells per frame for a snappy reveal
+            self.path_reveal_index = min(
+                self.path_reveal_index + 2, len(self.path_cells)
+            )
+            path_color = STATE_COLORS.get("path", Colors.GRID_PATH)
+            for pr, pc in self.path_cells[: self.path_reveal_index]:
+                px = self.offset_x + gap + pc * (cell_size + gap)
+                py = self.offset_y + gap + pr * (cell_size + gap)
+                prect = pygame.Rect(px, py, cell_size, cell_size)
+                pygame.draw.rect(surface, path_color, prect)
+                # Re-draw S/E labels if they sit on a path cell
+                if (pr, pc) == self.start:
+                    self._draw_cell_label(surface, "S", prect, Colors.BG)
+                elif (pr, pc) == self.end:
+                    self._draw_cell_label(surface, "E", prect, Colors.BG)
+
+            if self.path_reveal_index >= len(self.path_cells):
+                # Animation complete — commit path state permanently
+                self.path_animating = False
+                for pr, pc in self.path_cells:
+                    if (pr, pc) != self.start and (pr, pc) != self.end:
+                        self.cell_states[pr][pc] = "path"
 
     def _draw_cell_label(self, surface, text, rect, color):
         """Render a centred bold letter inside a cell rect."""
@@ -350,6 +396,11 @@ class PathfindingVisualizer(BaseVisualizer):
         self.total_cost = snapshot["total_cost"]
         self.current_status = snapshot["current_status"]
         self.current_op_type = snapshot["current_op_type"]
+        # Flash timers and path animation are visual-only — reset on time-travel
+        self.flash_timers = [[0.0] * self.grid_cols for _ in range(self.grid_rows)]
+        self.path_cells        = []
+        self.path_reveal_index = 0
+        self.path_animating    = False
 
     def _apply_operation(self, op):
         """Apply a yielded operation to the visual state."""
@@ -362,6 +413,7 @@ class PathfindingVisualizer(BaseVisualizer):
             if (r, c) != self.start and (r, c) != self.end:
                 self.cell_states[r][c] = "frontier"
             self.frontier_size += 1
+            self.flash_timers[r][c] = 0.2
 
         elif op_type == "visit":
             r, c = cell
@@ -369,6 +421,7 @@ class PathfindingVisualizer(BaseVisualizer):
                 self.cell_states[r][c] = "visited"
             self.cells_explored += 1
             self.frontier_size = max(0, self.frontier_size - 1)
+            self.flash_timers[r][c] = 0.2
 
         elif op_type == "update":
             pass  # Cell stays "frontier", just data changed
@@ -379,13 +432,18 @@ class PathfindingVisualizer(BaseVisualizer):
 
         if op_type == "path":
             r, c = cell
-            self.cell_states[r][c] = "path"
+            # Buffer path cells for animated reveal — do NOT change state yet
+            self.path_cells.append((r, c))
             self.path_length = data.get("path_length", 0)
+            self.flash_timers[r][c] = 0.2
 
         elif op_type == "done":
             self.path_length = data.get("path_length", 0)
             self.total_cost = data.get("total_cost", 0)
             self.is_complete = True
+            # Kick off path reveal animation
+            self.path_animating    = True
+            self.path_reveal_index = 0
 
         elif op_type == "no_path":
             self.is_complete = True
