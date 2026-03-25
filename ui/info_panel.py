@@ -30,12 +30,21 @@ class InfoPanel:
         self.time_avg = ""
         self.time_worst = ""
         self.space = ""
-        self.stable = ""
+        self.stable = None
+        # Pathfinding-specific algorithm info
+        self.time_general = ""
+        self.optimal = None
 
         # Live stats
+        self.stats_tab = "sorting"
         self.comparisons = 0
         self.swaps = 0
         self.status = "Ready"
+        # Pathfinding-specific stats
+        self.cells_explored = 0
+        self.frontier_size = 0
+        self.path_length = 0
+        self.total_cost = 0
 
         # Legend items: list of (color, label)
         self.legend_items = []
@@ -50,18 +59,35 @@ class InfoPanel:
         self._prev_pointers_for_panel = None
         self._cached_var_lines = []
 
-    def set_algorithm_info(self, name, time_best, time_avg, time_worst, space, stable):
-        self.algo_name = name
-        self.time_best = time_best
-        self.time_avg = time_avg
-        self.time_worst = time_worst
-        self.space = space
-        self.stable = "Yes" if stable else "No"
+    def set_algorithm_info(self, info_dict):
+        """Accept a dict of algorithm info. Keys vary by tab.
+        Sorting: name, time_best, time_avg, time_worst, space, stable
+        Pathfinding: name, time, space, optimal
+        """
+        self.algo_name = info_dict.get("name", "")
+        self.time_best = info_dict.get("time_best", "")
+        self.time_avg = info_dict.get("time_avg", "")
+        self.time_worst = info_dict.get("time_worst", "")
+        self.space = info_dict.get("space", "")
+        self.stable = info_dict.get("stable", None)
+        # Pathfinding-specific
+        self.time_general = info_dict.get("time", "")
+        self.optimal = info_dict.get("optimal", None)
 
-    def set_stats(self, comparisons, swaps, status):
-        self.comparisons = comparisons
-        self.swaps = swaps
-        self.status = status
+    def set_stats(self, stats_dict):
+        """Accept a dict of live stats. Must include 'tab' key for rendering.
+        Sorting: tab="sorting", comparisons, swaps, status
+        Pathfinding: tab="pathfinding", cells_explored, frontier_size, path_length, total_cost, status
+        """
+        self.stats_tab = stats_dict.get("tab", "sorting")
+        self.comparisons = stats_dict.get("comparisons", 0)
+        self.swaps = stats_dict.get("swaps", 0)
+        self.status = stats_dict.get("status", "")
+        # Pathfinding-specific
+        self.cells_explored = stats_dict.get("cells_explored", 0)
+        self.frontier_size = stats_dict.get("frontier_size", 0)
+        self.path_length = stats_dict.get("path_length", 0)
+        self.total_cost = stats_dict.get("total_cost", 0)
 
     def set_legend(self, legend_items):
         self.legend_items = legend_items
@@ -172,13 +198,45 @@ class InfoPanel:
         self._build_status_lines(inner_width)
         self._build_var_lines()
 
-        # --- Fixed card heights ---
-        algo_rows = 5
-        stats_rows = 3
+        # --- Build algo rows dynamically ---
+        if self.time_general:
+            # Pathfinding layout: Time, Space, Optimal (3 rows)
+            algo_rows_data = [
+                ("Time", self.time_general),
+                ("Space", self.space),
+                ("Optimal", "Yes" if self.optimal else "No"),
+            ]
+        else:
+            # Sorting layout: Best, Avg, Worst, Space, Stable (5 rows)
+            algo_rows_data = [
+                ("Best", self.time_best),
+                ("Average", self.time_avg),
+                ("Worst", self.time_worst),
+                ("Space", self.space),
+                ("Stable", "Yes" if self.stable else "No"),
+            ]
+
+        # --- Build stats rows dynamically ---
+        if self.stats_tab == "pathfinding":
+            stat_rows = [
+                ("Explored", str(self.cells_explored)),
+                ("Frontier", str(self.frontier_size)),
+                ("Path Length", str(self.path_length)),
+                ("Total Cost", str(self.total_cost)),
+            ]
+        else:
+            stat_rows = [
+                ("Comparisons", str(self.comparisons)),
+                ("Swaps", str(self.swaps)),
+            ]
+
+        # --- Dynamic card heights ---
+        algo_rows = len(algo_rows_data)
+        stats_rows = len(stat_rows)
 
         card1_h = card_pad + header_h + title_h + algo_rows * row_sp + bottom_pad
 
-        # LIVE STATS — fixed height, always reserves 2 status text lines
+        # LIVE STATS — dynamic height, always reserves 2 status text lines
         card2_h = card_pad + header_h + stats_rows * stat_sp + 2 * 24 + bottom_pad
 
         # PSEUDOCODE — fixed height based on longest algorithm (Quick Sort = 13 lines)
@@ -210,14 +268,7 @@ class InfoPanel:
         surface.blit(name_surf, (cx, cy))
         cy += title_h
 
-        rows = [
-            ("Best", self.time_best),
-            ("Avg", self.time_avg),
-            ("Worst", self.time_worst),
-            ("Space", self.space),
-            ("Stable", self.stable),
-        ]
-        for label, value in rows:
+        for label, value in algo_rows_data:
             label_surf = self.font_label.render(f"{label}:", True, Colors.TEXT_SECONDARY)
             value_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
             surface.blit(label_surf, (cx, cy))
@@ -235,13 +286,10 @@ class InfoPanel:
         surface.blit(header_surf, (cx, cy))
         cy += header_h
 
-        comp_surf = self.font_stats.render(f"Comparisons:  {self.comparisons}", True, Colors.TEXT_PRIMARY)
-        surface.blit(comp_surf, (cx, cy))
-        cy += stat_sp
-
-        swap_surf = self.font_stats.render(f"Swaps:  {self.swaps}", True, Colors.TEXT_PRIMARY)
-        surface.blit(swap_surf, (cx, cy))
-        cy += stat_sp
+        for stat_label, stat_value in stat_rows:
+            row_surf = self.font_stats.render(f"{stat_label}:  {stat_value}", True, Colors.TEXT_PRIMARY)
+            surface.blit(row_surf, (cx, cy))
+            cy += stat_sp
 
         simple_states = {"Ready", "Running", "Paused", "Complete"}
         if self.status in simple_states:

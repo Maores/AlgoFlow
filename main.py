@@ -230,10 +230,7 @@ class App:
         viz = self.visualizers.get("Sorting")
         if viz and hasattr(viz, "get_algorithm_info"):
             info = viz.get_algorithm_info()
-            self.info_panel.set_algorithm_info(
-                info["name"], info["time_best"], info["time_avg"],
-                info["time_worst"], info["space"], info["stable"]
-            )
+            self.info_panel.set_algorithm_info(info)
             self.info_panel.set_pseudocode_state(
                 viz.algorithm_key, getattr(viz, "current_op_type", "")
             )
@@ -407,11 +404,12 @@ class App:
 
         # Update info panel stats
         if hasattr(viz, "get_status"):
-            self.info_panel.set_stats(
-                getattr(viz, "comparisons", 0),
-                getattr(viz, "swaps", 0),
-                viz.get_status()
-            )
+            self.info_panel.set_stats({
+                "tab": "sorting",
+                "comparisons": getattr(viz, "comparisons", 0),
+                "swaps": getattr(viz, "swaps", 0),
+                "status": viz.get_status() if hasattr(viz, "get_status") else "",
+            })
 
         # Pass pointer/array data for variables panel
         if hasattr(viz, "current_pointers"):
