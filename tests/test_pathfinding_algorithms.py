@@ -129,3 +129,92 @@ def test_dfs_4_tuple_format():
         assert isinstance(op_type, str)
         assert isinstance(msg, str)
         assert isinstance(data, dict)
+
+
+def test_dijkstra_finds_cheapest_path():
+    from algorithms.pathfinding import dijkstra
+    weights = {(2, c): 5 for c in range(5)}
+    grid = make_grid(5, 5, weights=weights)
+    ops = collect_ops(dijkstra(grid, (0, 0), (4, 4)))
+    op_types = [op[0] for op in ops]
+    assert "done" in op_types
+    done_op = [op for op in ops if op[0] == "done"][0]
+    assert done_op[3]["path_length"] > 0
+    assert done_op[3]["total_cost"] > 0
+
+
+def test_dijkstra_prefers_cheap_route():
+    from algorithms.pathfinding import dijkstra
+    grid = make_grid(3, 3, weights={(1, 1): 5})
+    ops = collect_ops(dijkstra(grid, (0, 0), (2, 2)))
+    path_cells = [op[1] for op in ops if op[0] == "path"]
+    assert (1, 1) not in path_cells
+
+
+def test_dijkstra_no_path():
+    from algorithms.pathfinding import dijkstra
+    walls = [(2, c) for c in range(5)]
+    grid = make_grid(5, 5, walls=walls)
+    ops = collect_ops(dijkstra(grid, (0, 0), (4, 4)))
+    op_types = [op[0] for op in ops]
+    assert "no_path" in op_types
+
+
+def test_dijkstra_yields_update_ops():
+    from algorithms.pathfinding import dijkstra
+    grid = make_grid(3, 3)
+    ops = collect_ops(dijkstra(grid, (0, 0), (2, 2)))
+    op_types = [op[0] for op in ops]
+    assert "visit" in op_types
+    assert "frontier" in op_types
+
+
+def test_astar_finds_optimal_path():
+    from algorithms.pathfinding import astar
+    grid = make_grid(5, 5)
+    ops = collect_ops(astar(grid, (0, 0), (4, 4)))
+    op_types = [op[0] for op in ops]
+    assert "done" in op_types
+    done_op = [op for op in ops if op[0] == "done"][0]
+    assert done_op[3]["path_length"] == 9
+
+
+def test_astar_explores_less_than_bfs():
+    from algorithms.pathfinding import astar, bfs
+    grid = make_grid(10, 10)
+    start, end = (0, 0), (9, 9)
+    bfs_ops = collect_ops(bfs(grid, start, end))
+    astar_ops = collect_ops(astar(grid, start, end))
+    bfs_visited = len([op for op in bfs_ops if op[0] == "visit"])
+    astar_visited = len([op for op in astar_ops if op[0] == "visit"])
+    assert astar_visited <= bfs_visited
+
+
+def test_astar_with_weights():
+    from algorithms.pathfinding import astar
+    grid = make_grid(3, 3, weights={(1, 1): 5})
+    ops = collect_ops(astar(grid, (0, 0), (2, 2)))
+    path_cells = [op[1] for op in ops if op[0] == "path"]
+    assert (1, 1) not in path_cells
+
+
+def test_astar_no_path():
+    from algorithms.pathfinding import astar
+    walls = [(2, c) for c in range(5)]
+    grid = make_grid(5, 5, walls=walls)
+    ops = collect_ops(astar(grid, (0, 0), (4, 4)))
+    op_types = [op[0] for op in ops]
+    assert "no_path" in op_types
+
+
+def test_astar_yields_f_g_h():
+    from algorithms.pathfinding import astar
+    grid = make_grid(3, 3)
+    ops = collect_ops(astar(grid, (0, 0), (2, 2)))
+    frontier_ops = [op for op in ops if op[0] == "frontier"]
+    for op in frontier_ops:
+        data = op[3]
+        assert "g" in data
+        assert "h" in data
+        assert "f" in data
+        assert data["f"] == data["g"] + data["h"]
