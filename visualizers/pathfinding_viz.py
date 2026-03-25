@@ -3,20 +3,17 @@ import pygame
 from visualizers.base import BaseVisualizer
 from config import (
     Colors, GRID_SIZES, DEFAULT_GRID_SIZE, CELL_GAP,
-    WEIGHT_COST, FONT_FAMILY, FONT_SIZES
+    FONT_FAMILY, FONT_SIZES
 )
 
 PATHFINDING_ALGO_INFO = {
     "BFS":      {"name": "Breadth-First Search",    "time": "O(V + E)",         "space": "O(V)", "optimal": True},
     "DFS":      {"name": "Depth-First Search",       "time": "O(V + E)",         "space": "O(V)", "optimal": False},
-    "Dijkstra": {"name": "Dijkstra's Algorithm",     "time": "O((V+E) log V)",   "space": "O(V)", "optimal": True},
-    "A*":       {"name": "A* Search",                "time": "O((V+E) log V)",   "space": "O(V)", "optimal": True},
 }
 
 STATE_COLORS = {
     "empty":    Colors.GRID_EMPTY,
     "wall":     Colors.GRID_WALL,
-    "weighted": Colors.GRID_WEIGHTED,
     "start":    Colors.GRID_START,
     "end":      Colors.GRID_END,
     "frontier": Colors.GRID_FRONTIER,
@@ -27,11 +24,11 @@ STATE_COLORS = {
 
 class PathfindingVisualizer(BaseVisualizer):
     """
-    Visualizer for pathfinding algorithms (BFS, DFS, Dijkstra, A*).
+    Visualizer for pathfinding algorithms (BFS, DFS).
 
     Grid data model
     ---------------
-    self.grid        : 2-D list of cell costs  — 1 (empty), -1 (wall), 5 (weighted)
+    self.grid        : 2-D list of cell costs  — 1 (empty), -1 (wall)
     self.cell_states : 2-D list of visual state strings (see STATE_COLORS)
     self.start       : (row, col) tuple
     self.end         : (row, col) tuple
@@ -42,7 +39,6 @@ class PathfindingVisualizer(BaseVisualizer):
 
         # Fonts
         self.font_label  = pygame.font.SysFont(FONT_FAMILY, FONT_SIZES["small"], bold=True)
-        self.font_cost   = pygame.font.SysFont(FONT_FAMILY, FONT_SIZES["tiny"])
 
         # Algorithm selection
         self.algorithm_key = "BFS"
@@ -50,7 +46,6 @@ class PathfindingVisualizer(BaseVisualizer):
         # Algorithm counters / status
         self.cells_explored  = 0
         self.path_length     = 0
-        self.total_cost      = 0
         self.frontier_size   = 0
         self.current_op_type = ""
         self.current_status  = ""
@@ -115,8 +110,6 @@ class PathfindingVisualizer(BaseVisualizer):
                 cost = self.grid[r][c]
                 if cost == -1:
                     self.cell_states[r][c] = "wall"
-                elif cost > 1:
-                    self.cell_states[r][c] = "weighted"
                 elif (r, c) == self.start:
                     self.cell_states[r][c] = "start"
                 elif (r, c) == self.end:
@@ -139,7 +132,6 @@ class PathfindingVisualizer(BaseVisualizer):
         self.history_index = -1
         self.cells_explored  = 0
         self.path_length     = 0
-        self.total_cost      = 0
         self.frontier_size   = 0
         self.current_op_type = ""
         self.current_status  = ""
@@ -217,19 +209,11 @@ class PathfindingVisualizer(BaseVisualizer):
                     self._draw_cell_label(surface, "S", rect, Colors.BG)
                 elif state == "end":
                     self._draw_cell_label(surface, "E", rect, Colors.BG)
-                elif state == "weighted":
-                    cost = self.grid[r][c]
-                    self._draw_cell_cost(surface, str(cost), rect)
 
-                # ---- data overlays ----
+                # ---- data overlays (distance from start) ----
                 if cell_size >= 30 and state in ("frontier", "visited") and self.cell_data is not None:
                     cdata = self.cell_data[r][c]
-                    if self.algorithm_key in ("BFS", "DFS"):
-                        value = cdata.get("distance", "")
-                    elif self.algorithm_key == "Dijkstra":
-                        value = cdata.get("cost", "")
-                    else:  # A*
-                        value = cdata.get("f", "")
+                    value = cdata.get("distance", "")
                     if value != "" and value is not None:
                         font_size = max(10, int(cell_size // 3))
                         if not hasattr(self, '_font_cache'):
@@ -270,10 +254,6 @@ class PathfindingVisualizer(BaseVisualizer):
         surf = self.font_label.render(text, True, color)
         surface.blit(surf, surf.get_rect(center=rect.center))
 
-    def _draw_cell_cost(self, surface, text, rect):
-        """Render a small cost number centred inside a cell rect."""
-        surf = self.font_cost.render(text, True, Colors.BG)
-        surface.blit(surf, surf.get_rect(center=rect.center))
 
     # ------------------------------------------------------------------
     # Grid interaction helpers
@@ -301,8 +281,8 @@ class PathfindingVisualizer(BaseVisualizer):
     def _apply_edit(self, cell):
         """Apply the current edit_mode action to the given (row, col) cell."""
         r, c = cell
-        # Cannot edit start or end cells in wall/weight mode
-        if self.edit_mode in ("wall", "weight") and (cell == self.start or cell == self.end):
+        # Cannot edit start or end cells in wall mode
+        if self.edit_mode == "wall" and (cell == self.start or cell == self.end):
             return
 
         if self.edit_mode == "wall":
@@ -314,18 +294,10 @@ class PathfindingVisualizer(BaseVisualizer):
             else:
                 self.grid[r][c] = 1
 
-        elif self.edit_mode == "weight":
-            if self._drag_action is None:
-                self._drag_action = "remove" if self.grid[r][c] > 1 else "place"
-            if self._drag_action == "place":
-                self.grid[r][c] = WEIGHT_COST
-            else:
-                self.grid[r][c] = 1
-
         elif self.edit_mode == "start":
             if cell != self.end:
                 self.start = cell
-                # Clear wall/weight at new start
+                # Clear wall at new start
                 self.grid[cell[0]][cell[1]] = 1
 
         elif self.edit_mode == "end":
@@ -366,12 +338,10 @@ class PathfindingVisualizer(BaseVisualizer):
 
     def _create_generator(self):
         """Create a fresh algorithm generator from the current grid state."""
-        from algorithms.pathfinding import bfs, dfs, dijkstra, astar
+        from algorithms.pathfinding import bfs, dfs
         algo_map = {
             "BFS": bfs,
             "DFS": dfs,
-            "Dijkstra": dijkstra,
-            "A*": astar,
         }
         algo_func = algo_map.get(self.algorithm_key, bfs)
         return algo_func(self.grid, self.start, self.end)
@@ -385,7 +355,6 @@ class PathfindingVisualizer(BaseVisualizer):
             "cells_explored": self.cells_explored,
             "frontier_size": self.frontier_size,
             "path_length": self.path_length,
-            "total_cost": self.total_cost,
             "current_status": self.current_status,
             "current_op_type": self.current_op_type,
         }
@@ -397,7 +366,6 @@ class PathfindingVisualizer(BaseVisualizer):
         self.cells_explored = snapshot["cells_explored"]
         self.frontier_size = snapshot["frontier_size"]
         self.path_length = snapshot["path_length"]
-        self.total_cost = snapshot["total_cost"]
         self.current_status = snapshot["current_status"]
         self.current_op_type = snapshot["current_op_type"]
         # Flash timers and path animation are visual-only — reset on time-travel
@@ -443,7 +411,6 @@ class PathfindingVisualizer(BaseVisualizer):
 
         elif op_type == "done":
             self.path_length = data.get("path_length", 0)
-            self.total_cost = data.get("total_cost", 0)
             self.is_complete = True
             # Kick off path reveal animation
             self.path_animating    = True
@@ -501,7 +468,6 @@ class PathfindingVisualizer(BaseVisualizer):
             self.cells_explored = 0
             self.frontier_size = 0
             self.path_length = 0
-            self.total_cost = 0
             self.current_status = ""
             self.current_op_type = ""
             self.is_complete = False
@@ -564,7 +530,6 @@ class PathfindingVisualizer(BaseVisualizer):
             "Random": self._generate_random_walls,
             "Maze": self._generate_recursive_maze,
             "Spiral": self._generate_spiral,
-            "Weighted": self._generate_weighted_field,
             "Bottleneck": self._generate_bottleneck,
         }
         gen_func = generators.get(preset_key)
@@ -659,18 +624,6 @@ class PathfindingVisualizer(BaseVisualizer):
                         # Gap on left side
                         if c != layer:
                             self.grid[r][c] = -1
-
-    def _generate_weighted_field(self):
-        """Open field with scattered weighted terrain and few walls."""
-        import random
-        from config import WEIGHT_COST
-        for r in range(self.grid_rows):
-            for c in range(self.grid_cols):
-                rnd = random.random()
-                if rnd < 0.05:
-                    self.grid[r][c] = -1  # 5% walls
-                elif rnd < 0.30:
-                    self.grid[r][c] = WEIGHT_COST  # 25% weighted
 
     def _generate_bottleneck(self):
         """Create chambers connected by narrow passages."""

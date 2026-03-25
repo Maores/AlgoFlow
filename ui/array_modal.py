@@ -7,7 +7,7 @@ from config import Colors, FONT_FAMILY, BOX_MODE_THRESHOLD
 class ArrayModal:
     """Centered overlay modal for entering custom arrays or selecting presets."""
 
-    PRESET_LABELS = ["Random", "Sorted", "Reversed", "Nearly", "Few Unique"]
+    PRESET_LABELS = ["Random", "Sorted", "Reversed"]
 
     def __init__(self, screen_width, screen_height):
         self.visible = False
@@ -84,6 +84,9 @@ class ArrayModal:
         self.size_input_rect = pygame.Rect(size_x + sq + gap_s, size_row_y, size_input_w, sq)
         self.plus_rect = pygame.Rect(size_x + sq + gap_s + size_input_w + gap_s, size_row_y, sq, sq)
 
+        # "or" divider between input and size section
+        self.or_y = size_row_y - 16
+
         # Preset row
         preset_y = size_row_y + sq + 14
         preset_h = 36
@@ -95,6 +98,15 @@ class ArrayModal:
             pw = self.font_btn.size(label)[0] + 24
             self.preset_rects.append(pygame.Rect(px, preset_y, pw, preset_h))
             px += pw + preset_gap
+
+        # Size section highlight rect (encompasses size row + presets)
+        section_pad = 10
+        self.size_section_rect = pygame.Rect(
+            cx + pad - section_pad,
+            size_row_y - section_pad,
+            inner_w + section_pad * 2,
+            (preset_y + preset_h) - size_row_y + section_pad * 2
+        )
 
         # Bottom row: [Clear] [Cancel] [Apply]
         btn_w = 100
@@ -226,16 +238,6 @@ class ArrayModal:
         elif preset_name == "Reversed":
             arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
             arr.reverse()
-        elif preset_name == "Nearly":
-            arr = [round(1 + (49 * i) / max(1, size - 1)) for i in range(size)]
-            swaps = min(2, size // 3)
-            for _ in range(max(1, swaps)):
-                idx = random.randint(0, len(arr) - 2)
-                arr[idx], arr[idx + 1] = arr[idx + 1], arr[idx]
-        elif preset_name == "Few Unique":
-            num_distinct = random.randint(3, 4)
-            distinct = random.sample(range(1, 50), num_distinct)
-            arr = [random.choice(distinct) for _ in range(size)]
         else:
             return
 
@@ -335,6 +337,12 @@ class ArrayModal:
             elif self.size_input_rect.collidepoint(pos):
                 self.size_focused = True
                 self.array_focused = False
+            elif self.size_section_rect.collidepoint(pos):
+                # Clicked somewhere in the size/preset section
+                self.size_focused = True
+                self.array_focused = False
+                if was_size_focused:
+                    self._commit_size_text()
             else:
                 # Clicking a button — keep current focus but commit size if needed
                 if was_size_focused:
@@ -359,6 +367,8 @@ class ArrayModal:
 
             # Size selector buttons
             if self.minus_rect.collidepoint(pos):
+                self.size_focused = True
+                self.array_focused = False
                 self._commit_size_text()
                 old_size = self.current_size
                 self.current_size = max(2, self.current_size - 1)
@@ -368,6 +378,8 @@ class ArrayModal:
                     self._validate()
                 return None
             if self.plus_rect.collidepoint(pos):
+                self.size_focused = True
+                self.array_focused = False
                 self._commit_size_text()
                 old_size = self.current_size
                 self.current_size = min(BOX_MODE_THRESHOLD, self.current_size + 1)
@@ -380,6 +392,8 @@ class ArrayModal:
             # Preset buttons
             for i, rect in enumerate(self.preset_rects):
                 if rect.collidepoint(pos):
+                    self.size_focused = True
+                    self.array_focused = False
                     self._apply_preset(self.PRESET_LABELS[i])
                     return None
 
@@ -513,6 +527,15 @@ class ArrayModal:
             color = (50, 200, 100) if self.is_valid else (230, 70, 70)
             valid_surf = self.font_label.render(self.error_msg, True, color)
             surface.blit(valid_surf, self.valid_pos)
+
+        # "— or —" divider between input and size/preset section
+        or_surf = self.font_label.render("— or generate by size —", True, Colors.TEXT_SECONDARY)
+        or_rect = or_surf.get_rect(centerx=self.card_rect.centerx, top=self.or_y)
+        surface.blit(or_surf, or_rect)
+
+        # Size section highlight border (accent when size/presets focused)
+        size_section_border = Colors.TEXT_ACCENT if self.size_focused else Colors.CARD_BORDER
+        pygame.draw.rect(surface, size_section_border, self.size_section_rect, width=2, border_radius=8)
 
         # Size selector row:  [-]  [__]  [+]
         mouse_pos = pygame.mouse.get_pos()

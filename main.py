@@ -134,7 +134,7 @@ class App:
         )
 
         self.pf_algo_group = ButtonGroup(
-            0, btn_y + 1, ["BFS", "DFS", "Dijkstra", "A*"], self.font_small, active_index=0
+            0, btn_y + 1, ["BFS", "DFS"], self.font_small, active_index=0
         )
 
         pf_size_default_idx = GRID_SIZE_OPTIONS.index(DEFAULT_GRID_SIZE)
@@ -143,14 +143,14 @@ class App:
         )
 
         self.pf_preset_group = ButtonGroup(
-            0, btn_y + 1, ["Random", "Maze", "Spiral", "Weight", "Bottle"],
+            0, btn_y + 1, ["Random", "Maze", "Spiral", "Bottle"],
             self.font_small, active_index=0
         )
         self.pf_preset_group.deselect_all()
         # Map short labels back to full preset keys
         self._preset_label_map = {
             "Random": "Random", "Maze": "Maze", "Spiral": "Spiral",
-            "Weight": "Weighted", "Bottle": "Bottleneck",
+            "Bottle": "Bottleneck",
         }
 
         pf_help_w = self.font_small.size("Help")[0] + 36
@@ -158,8 +158,13 @@ class App:
                                   text_color=Colors.TEXT_ACCENT)
 
         self.pf_edit_mode_group = ButtonGroup(
-            0, 0, ["Wall", "Weight", "Start", "End"], self.font_small, active_index=0
+            0, 0, ["Wall", "Start", "End"], self.font_small, active_index=0
         )
+
+        # Clear grid button for pathfinding
+        pf_clear_w = self.font_small.size("Clear")[0] + 36
+        self.pf_clear_btn = Button(0, btn_y, pf_clear_w, btn_h, "Clear", self.font_small,
+                                   text_color=Colors.TEXT_ACCENT)
 
         # Pathfinding divider positions (set by _rebuild_layout)
         self.pf_div1_x = 0
@@ -327,13 +332,17 @@ class App:
         # Preset group
         self.pf_preset_group.set_position(x, btn_y + 1)
         preset_width = sum(b.rect.width for b in self.pf_preset_group.buttons) + 5 * (len(self.pf_preset_group.buttons) - 1)
-        preset_right = x + preset_width
+        x += preset_width + 12
 
-        # Help button — right-anchored, but pushed right if presets would overlap
+        # Clear button
+        self.pf_clear_btn.rect.topleft = (x, btn_y)
+        x += self.pf_clear_btn.rect.width + gap
+
+        # Help button — right-anchored, but pushed right if content would overlap
         help_right_margin = 14
         help_w = self.pf_help_btn.rect.width
         ideal_right = w - help_right_margin
-        min_right = preset_right + gap + help_w  # minimum to avoid overlap
+        min_right = x + help_w  # minimum to avoid overlap
         help_right = max(ideal_right, min_right)
         self.pf_help_btn.rect.topright = (
             help_right,
@@ -363,7 +372,6 @@ class App:
                 "cells_explored": viz.cells_explored,
                 "frontier_size": getattr(viz, 'frontier_size', 0),
                 "path_length": viz.path_length,
-                "total_cost": viz.total_cost,
                 "status": viz.get_status() if hasattr(viz, 'get_status') else ""
             })
             self.info_panel.set_pseudocode_state(
@@ -401,12 +409,21 @@ class App:
         self._update_info_panel()
 
     def _on_tab_switch(self, new_tab):
-        """Handle tab switch — update legend, info panel, and layout."""
+        """Handle tab switch — pause running algorithms, update legend/info/layout."""
+        # Pause any running algorithm in the tab we're leaving
+        old_tab = self._active_tab
+        if old_tab in self.visualizers:
+            old_viz = self.visualizers[old_tab]
+            if old_viz.is_running:
+                old_viz.is_running = False
+
         self._active_tab = new_tab
         self._rebuild_layout(self.width, self.height)
         self._update_info_panel()
 
         if new_tab == "Sorting":
+            # Clear pathfinding variables so Legend is visible
+            self.info_panel.set_variables({}, [])
             self.info_panel.set_legend([
                 (Colors.BAR_DEFAULT, "Default"),
                 (Colors.BAR_COMPARING, "Comparing"),
@@ -415,11 +432,12 @@ class App:
                 (Colors.BAR_PIVOT, "Pivot"),
             ])
         elif new_tab == "Pathfinding":
+            # Clear sorting variables so Legend is visible
+            self.info_panel.set_variables({}, [])
             self.info_panel.set_legend([
                 (Colors.GRID_START, "Start"),
                 (Colors.GRID_END, "End"),
                 (Colors.GRID_WALL, "Wall"),
-                (Colors.GRID_WEIGHTED, "Weighted"),
                 (Colors.GRID_FRONTIER, "Frontier"),
                 (Colors.GRID_VISITED, "Visited"),
                 (Colors.GRID_PATH, "Path"),
@@ -488,7 +506,7 @@ class App:
                     if self.tab_bar.get_active_tab() == "Sorting":
                         self._open_custom_modal()
                 elif event.key == pygame.K_h:
-                    self.help_modal.open()
+                    self.help_modal.open(tab=self.tab_bar.get_active_tab())
 
             elif event.type == pygame.KEYUP:
                 if event.key in (pygame.K_RIGHT, pygame.K_LEFT):
@@ -527,7 +545,7 @@ class App:
                     self._open_custom_modal()
 
                 if self.help_button.handle_event(event):
-                    self.help_modal.open()
+                    self.help_modal.open(tab="Sorting")
 
             elif tab == "Pathfinding":
                 # --- Pathfinding control bar events ---
@@ -554,16 +572,19 @@ class App:
                         preset_key = self._preset_label_map.get(preset_change, preset_change)
                         viz.load_preset(preset_key)
 
+                if self.pf_clear_btn.handle_event(event):
+                    viz.clear_grid()
+
                 edit_change = self.pf_edit_mode_group.handle_event(event)
                 if edit_change:
                     viz.edit_mode = edit_change.lower()
 
                 if self.pf_help_btn.handle_event(event):
-                    self.help_modal.open()
+                    self.help_modal.open(tab="Pathfinding")
 
                 # Only forward mouse events to the visualizer if they are
                 # outside the edit toolbar area (prevents accidental wall
-                # placement when clicking Wall/Weight/Start/End buttons).
+                # placement when clicking Wall/Start/End buttons).
                 if event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
                     toolbar_btns = self.pf_edit_mode_group.buttons
                     if toolbar_btns and any(b.rect.collidepoint(event.pos) for b in toolbar_btns):
@@ -637,7 +658,6 @@ class App:
                 "cells_explored": viz.cells_explored,
                 "frontier_size": getattr(viz, 'frontier_size', 0),
                 "path_length": viz.path_length,
-                "total_cost": viz.total_cost,
                 "status": viz.get_status() if hasattr(viz, 'get_status') else ""
             })
 
@@ -650,6 +670,8 @@ class App:
             self.start_button.text = "Pause" if viz.is_running else "Start"
         elif tab == "Pathfinding":
             self.pf_start_btn.text = "Pause" if viz.is_running else "Start"
+
+
 
     def _draw_divider(self, x):
         """Draw a subtle vertical divider in the control bar."""
@@ -710,6 +732,7 @@ class App:
             self.pf_size_group.draw(self.screen)
             self._draw_divider(self.pf_div4_x)
             self.pf_preset_group.draw(self.screen)
+            self.pf_clear_btn.draw(self.screen)
             self.pf_help_btn.draw(self.screen)
             # Edit mode toolbar above the canvas
             self.pf_edit_mode_group.draw(self.screen)

@@ -18,7 +18,7 @@ class InfoPanel:
         self.font_label = pygame.font.SysFont(FONT_FAMILY, 21)
 
         # Monospace font for pseudocode
-        self.font_mono = pygame.font.SysFont("Consolas, Courier New, monospace", 15)
+        self.font_mono = pygame.font.SysFont("Consolas, Courier New, monospace", 19)
 
         # Pseudocode state
         self.algorithm_key = ""
@@ -77,7 +77,7 @@ class InfoPanel:
     def set_stats(self, stats_dict):
         """Accept a dict of live stats. Must include 'tab' key for rendering.
         Sorting: tab="sorting", comparisons, swaps, status
-        Pathfinding: tab="pathfinding", cells_explored, frontier_size, path_length, total_cost, status
+        Pathfinding: tab="pathfinding", cells_explored, frontier_size, path_length, status
         """
         self.stats_tab = stats_dict.get("tab", "sorting")
         self.comparisons = stats_dict.get("comparisons", 0)
@@ -190,7 +190,7 @@ class InfoPanel:
         stat_sp = 33
         legend_sp = 33
         var_sp = 27
-        code_line_h = 18
+        code_line_h = 23
         bottom_pad = 18
         card_gap = 12
 
@@ -222,7 +222,6 @@ class InfoPanel:
                 ("Explored", str(self.cells_explored)),
                 ("Frontier", str(self.frontier_size)),
                 ("Path Length", str(self.path_length)),
-                ("Total Cost", str(self.total_cost)),
             ]
         else:
             stat_rows = [
@@ -334,39 +333,12 @@ class InfoPanel:
 
         py += card_pseudo_h + card_gap
 
-        # --- Remaining space check ---
+        # --- Remaining space — Legend always visible, Variables below when active ---
         remaining = panel_bottom - py - card_gap
 
-        if has_vars and remaining >= 60:
-            # --- Card: Variables (clamped to remaining space) ---
-            draw_h = min(card_vars_h, remaining)
-            self._draw_card(surface, px, py, card_width, draw_h)
-            cx = px + card_pad
-            cy = py + card_pad
-
-            header_surf = self.font_section.render("VARIABLES", True, Colors.TEXT_ACCENT)
-            surface.blit(header_surf, (cx, cy))
-            cy += header_h
-
-            # Only draw variable rows that fit within the clamped card
-            max_var_y = py + draw_h - bottom_pad
-            for name, value, arr_info in self._cached_var_lines:
-                if cy + var_sp > max_var_y:
-                    break
-                name_surf = self.font_label.render(f"{name} = ", True, Colors.TEXT_ACCENT)
-                surface.blit(name_surf, (cx, cy))
-                val_x = cx + name_surf.get_width()
-                val_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
-                surface.blit(val_surf, (val_x, cy))
-                if arr_info:
-                    info_x = val_x + val_surf.get_width() + 8
-                    info_surf = self.font_label.render(arr_info, True, Colors.TEXT_SECONDARY)
-                    surface.blit(info_surf, (info_x, cy))
-                cy += var_sp
-
-        elif not has_vars and remaining >= 60:
-            # --- Card: Legend (only when variables are inactive) ---
-            legend_count = len(self.legend_items)
+        # --- Card: Legend (always shown if items exist) ---
+        legend_count = len(self.legend_items)
+        if legend_count > 0 and remaining >= 60:
             legend_header_cost = card_pad + header_h + bottom_pad
             max_legend_items = min(
                 legend_count,
@@ -393,3 +365,33 @@ class InfoPanel:
                     label_surf = self.font_label.render(label, True, Colors.TEXT_PRIMARY)
                     surface.blit(label_surf, (cx + square_size + 15, cy))
                     cy += legend_sp
+
+                py += card_legend_h + card_gap
+                remaining = panel_bottom - py - card_gap
+
+        # --- Card: Variables (shown below Legend when active) ---
+        if has_vars and remaining >= 60:
+            draw_h = min(card_vars_h, remaining)
+            self._draw_card(surface, px, py, card_width, draw_h)
+            cx = px + card_pad
+            cy = py + card_pad
+
+            header_surf = self.font_section.render("VARIABLES", True, Colors.TEXT_ACCENT)
+            surface.blit(header_surf, (cx, cy))
+            cy += header_h
+
+            # Only draw variable rows that fit within the clamped card
+            max_var_y = py + draw_h - bottom_pad
+            for name, value, arr_info in self._cached_var_lines:
+                if cy + var_sp > max_var_y:
+                    break
+                name_surf = self.font_label.render(f"{name} = ", True, Colors.TEXT_ACCENT)
+                surface.blit(name_surf, (cx, cy))
+                val_x = cx + name_surf.get_width()
+                val_surf = self.font_label.render(value, True, Colors.TEXT_PRIMARY)
+                surface.blit(val_surf, (val_x, cy))
+                if arr_info:
+                    info_x = val_x + val_surf.get_width() + 8
+                    info_surf = self.font_label.render(arr_info, True, Colors.TEXT_SECONDARY)
+                    surface.blit(info_surf, (info_x, cy))
+                cy += var_sp

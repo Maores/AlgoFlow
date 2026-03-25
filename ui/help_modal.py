@@ -4,34 +4,51 @@ from config import Colors, FONT_FAMILY
 
 
 class HelpModal:
-    """Lightweight modal showing keyboard controls."""
+    """Lightweight modal showing keyboard controls, tab-aware."""
+
+    SORTING_CONTROLS = [
+        ("[Space]", "Play / Pause"),
+        ("[R]", "Reset"),
+        ("\u2192", "Step Forward"),
+        ("\u2190", "Step Backward"),
+        ("[C]", "Custom Array"),
+        ("[H]", "Toggle Help"),
+        ("[Esc]", "Close / Quit"),
+    ]
+
+    PATHFINDING_CONTROLS = [
+        ("[Space]", "Play / Pause"),
+        ("[R]", "Reset Algorithm"),
+        ("\u2192", "Step Forward"),
+        ("\u2190", "Step Backward"),
+        ("[H]", "Toggle Help"),
+        ("[Esc]", "Close / Quit"),
+        ("", ""),
+        ("Mouse", "Draw / erase walls"),
+        ("", "Use toolbar to switch"),
+        ("", "between Wall / Start / End"),
+    ]
 
     def __init__(self, screen_width, screen_height):
         self.visible = False
+        self.current_tab = "Sorting"
         self.font_title = pygame.font.SysFont(FONT_FAMILY, 28, bold=True)
         self.font_text = pygame.font.SysFont(FONT_FAMILY, 20)
         self.font_hint = pygame.font.SysFont(FONT_FAMILY, 16)
 
-        self.card_w = 380
-        self.card_h = 380
+        self.card_w = 420
+        # Dynamic height based on longest controls list
+        max_rows = max(len(self.SORTING_CONTROLS), len(self.PATHFINDING_CONTROLS))
+        self.card_h = 100 + max_rows * 34 + 40  # title + rows + hint padding
         self.close_btn_size = 28
         self._overlay = None
         self.card_rect = pygame.Rect(0, 0, self.card_w, self.card_h)
         self.close_btn_rect = pygame.Rect(0, 0, self.close_btn_size, self.close_btn_size)
         self.resize(screen_width, screen_height)
 
-        self.controls = [
-            ("[Space]", "Play / Pause"),
-            ("[R]", "Reset"),
-            ("\u2192", "Step Forward"),
-            ("\u2190", "Step Backward"),
-            ("[C]", "Custom Array"),
-            ("[H]", "Toggle Help"),
-            ("[Esc]", "Close / Quit"),
-        ]
-
-    def open(self):
+    def open(self, tab="Sorting"):
         self.visible = True
+        self.current_tab = tab
 
     def close(self):
         self.visible = False
@@ -93,11 +110,21 @@ class HelpModal:
         surface.blit(x_surf, x_rect)
 
         # Title
-        title_surf = self.font_title.render("Controls", True, Colors.TEXT_PRIMARY)
+        if self.current_tab == "Pathfinding":
+            title_text = "Pathfinding Controls"
+        else:
+            title_text = "Sorting Controls"
+        title_surf = self.font_title.render(title_text, True, Colors.TEXT_PRIMARY)
         title_rect = title_surf.get_rect(
             centerx=self.card_rect.centerx, top=self.card_rect.top + 24
         )
         surface.blit(title_surf, title_rect)
+
+        # Select controls based on tab
+        if self.current_tab == "Pathfinding":
+            controls = self.PATHFINDING_CONTROLS
+        else:
+            controls = self.SORTING_CONTROLS
 
         # Control rows
         start_y = title_rect.bottom + 28
@@ -105,11 +132,12 @@ class HelpModal:
         key_x = self.card_rect.x + 60
         desc_x = self.card_rect.x + 160
 
-        for i, (key, desc) in enumerate(self.controls):
+        for i, (key, desc) in enumerate(controls):
             y = start_y + i * row_h
-            key_surf = self.font_text.render(key, True, Colors.TEXT_ACCENT)
+            if key:
+                key_surf = self.font_text.render(key, True, Colors.TEXT_ACCENT)
+                surface.blit(key_surf, (key_x, y))
             desc_surf = self.font_text.render(desc, True, Colors.TEXT_SECONDARY)
-            surface.blit(key_surf, (key_x, y))
             surface.blit(desc_surf, (desc_x, y))
 
         # Close hint

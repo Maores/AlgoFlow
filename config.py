@@ -62,7 +62,6 @@ class Colors:
     GRID_VISITED = (120, 80, 160)
     GRID_FRONTIER = (100, 180, 230)
     GRID_PATH = (255, 200, 50)
-    GRID_WEIGHTED = (180, 140, 50)
     GRID_LINE = (30, 30, 42)
 
     # Tree nodes
@@ -117,7 +116,6 @@ GRID_SIZES = {
 DEFAULT_GRID_SIZE = "Medium"
 GRID_SIZE_OPTIONS = ["Small", "Medium", "Large"]
 CELL_GAP = 1
-WEIGHT_COST = 5
 
 # Tabs
 TABS = ["Sorting", "Pathfinding", "Trees"]
