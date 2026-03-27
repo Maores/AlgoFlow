@@ -1,0 +1,146 @@
+"""Tree node data structures for AlgoFlow Trees tab.
+
+This module is the foundation for all tree algorithm visualizations.
+It provides:
+  - TreeNode: binary tree node with unique ids (used for step snapshots)
+  - serialize_tree / deserialize_tree: for time-travel (step backward)
+  - bst_from_values: build a BST by sequential insertion
+
+No Pygame dependency — pure Python only.
+"""
+
+from __future__ import annotations
+from collections import deque
+from typing import List, Dict, Optional
+
+
+class TreeNode:
+    """A binary tree node with a value and a unique auto-assigned id.
+
+    The id is assigned from a class-level counter so that each node
+    created during a session has a stable identity.  serialize_tree /
+    deserialize_tree rely on these ids to reconstruct parent-child
+    links without storing direct object references.
+    """
+
+    _counter: int = 0
+
+    def __init__(self, value: int) -> None:
+        self.value: int = value
+        self.id: int = TreeNode._counter
+        TreeNode._counter += 1
+        self.left: Optional[TreeNode] = None
+        self.right: Optional[TreeNode] = None
+
+    @classmethod
+    def reset_counter(cls) -> None:
+        """Reset the id counter to 0.
+
+        Used before deterministic tests and before building a fresh tree
+        so that node ids are reproducible.
+        """
+        cls._counter = 0
+
+
+# ---------------------------------------------------------------------------
+# Serialize / Deserialize
+# ---------------------------------------------------------------------------
+
+def serialize_tree(root: Optional[TreeNode]) -> List[Dict]:
+    """Return a list-of-dicts representation of the tree.
+
+    Each dict has the keys:
+        id       (int)       — stable node identity
+        value    (int)       — the node's stored value
+        left_id  (int|None)  — id of left child, or None
+        right_id (int|None)  — id of right child, or None
+
+    Returns [] for an empty tree (root is None).
+    Traversal order: BFS (level-order), so the root is always first.
+    """
+    if root is None:
+        return []
+
+    result: List[Dict] = []
+    queue: deque[TreeNode] = deque([root])
+
+    while queue:
+        node = queue.popleft()
+        result.append({
+            "id": node.id,
+            "value": node.value,
+            "left_id": node.left.id if node.left is not None else None,
+            "right_id": node.right.id if node.right is not None else None,
+        })
+        if node.left is not None:
+            queue.append(node.left)
+        if node.right is not None:
+            queue.append(node.right)
+
+    return result
+
+
+def deserialize_tree(data: List[Dict]) -> Optional[TreeNode]:
+    """Reconstruct a TreeNode tree from the list produced by serialize_tree.
+
+    Restores the exact ids, values, and parent-child relationships.
+    Returns None if data is empty.
+    """
+    if not data:
+        return None
+
+    # Pass 1: create all nodes (without links), keyed by id.
+    nodes: Dict[int, TreeNode] = {}
+    for record in data:
+        node = TreeNode.__new__(TreeNode)
+        node.id = record["id"]
+        node.value = record["value"]
+        node.left = None
+        node.right = None
+        nodes[node.id] = node
+
+    # Pass 2: wire up left/right pointers.
+    for record in data:
+        node = nodes[record["id"]]
+        node.left = nodes[record["left_id"]] if record["left_id"] is not None else None
+        node.right = nodes[record["right_id"]] if record["right_id"] is not None else None
+
+    # The root is the first entry (serialize always puts root first via BFS).
+    return nodes[data[0]["id"]]
+
+
+# ---------------------------------------------------------------------------
+# BST construction
+# ---------------------------------------------------------------------------
+
+def _bst_insert(root: TreeNode, value: int) -> None:
+    """Insert value into the BST rooted at root (standard, no balancing)."""
+    current = root
+    while True:
+        if value < current.value:
+            if current.left is None:
+                current.left = TreeNode(value)
+                return
+            current = current.left
+        else:
+            if current.right is None:
+                current.right = TreeNode(value)
+                return
+            current = current.right
+
+
+def bst_from_values(values: List[int]) -> Optional[TreeNode]:
+    """Build a BST by sequentially inserting each value.
+
+    Uses standard BST insertion (no balancing).  Does NOT reset the
+    TreeNode counter — relies on whatever the current counter state is.
+    Returns None for an empty list.
+    """
+    if not values:
+        return None
+
+    root = TreeNode(values[0])
+    for value in values[1:]:
+        _bst_insert(root, value)
+
+    return root
