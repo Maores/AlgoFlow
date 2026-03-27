@@ -1,7 +1,15 @@
-"""Tests for tree data structures (Task 1: TreeNode, serialize/deserialize, bst_from_values)."""
+"""Tests for tree data structures and BST generators (Tasks 1 & 2)."""
 
 import pytest
-from algorithms.trees import TreeNode, serialize_tree, deserialize_tree, bst_from_values
+from algorithms.trees import (
+    TreeNode,
+    serialize_tree,
+    deserialize_tree,
+    bst_from_values,
+    bst_insert,
+    bst_search,
+    TREE_ALGORITHM_INFO,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -183,3 +191,138 @@ def test_deserialize_missing_key_raises_value_error():
     bad_data = [{"id": 0, "value": 10}]  # missing left_id and right_id
     with pytest.raises(ValueError, match="missing keys"):
         deserialize_tree(bad_data)
+
+
+# ---------------------------------------------------------------------------
+# bst_insert generator (Task 2)
+# ---------------------------------------------------------------------------
+
+def test_bst_insert_sequence():
+    """Insert into an existing tree; verify op_type sequence ends with insert+done."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50, 30, 70])
+    #        50
+    #       /  \
+    #     30    70
+    # Inserting 40 should: compare 50, compare 30, insert 40, done
+
+    ops = list(bst_insert(root, 40))
+    op_types = [op[0] for op in ops]
+
+    assert op_types[-1] == "done"
+    assert op_types[-2] == "insert"
+    # There must be at least one compare before insert
+    assert "compare" in op_types
+    assert op_types.index("compare") < op_types.index("insert")
+
+
+def test_bst_insert_at_root():
+    """Inserting into an empty tree (None root) yields 'new_root' in the insert data."""
+    ops = list(bst_insert(None, 10))
+    insert_ops = [op for op in ops if op[0] == "insert"]
+    assert len(insert_ops) == 1
+    _, node_id, msg, data = insert_ops[0]
+    assert "new_root" in data
+    assert data["new_root"].value == 10
+
+
+def test_bst_insert_updates_tree():
+    """After consuming all yields the tree is correctly mutated in-place."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50, 30, 70])
+
+    # Exhaust the generator (mutations happen during iteration)
+    list(bst_insert(root, 40))
+
+    # 40 should be root.left.right
+    assert root.left is not None
+    assert root.left.value == 30
+    assert root.left.right is not None
+    assert root.left.right.value == 40
+
+    # Also test a value that goes right
+    list(bst_insert(root, 60))
+    assert root.right.left is not None
+    assert root.right.left.value == 60
+
+
+def test_bst_insert_duplicate_goes_right():
+    """Duplicate values are inserted to the right subtree."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50])
+    list(bst_insert(root, 50))
+    assert root.right is not None
+    assert root.right.value == 50
+
+
+# ---------------------------------------------------------------------------
+# bst_search generator (Task 2)
+# ---------------------------------------------------------------------------
+
+def test_bst_search_found():
+    """Searching for an existing value produces a 'found' op."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50, 30, 70])
+
+    ops = list(bst_search(root, 30))
+    op_types = [op[0] for op in ops]
+
+    assert "found" in op_types
+    assert op_types[-1] == "done"
+
+    found_op = next(op for op in ops if op[0] == "found")
+    assert found_op[1] == root.left.id  # 30 is root.left
+
+
+def test_bst_search_not_found():
+    """Searching for a missing value produces a 'not_found' op."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50, 30, 70])
+
+    ops = list(bst_search(root, 99))
+    op_types = [op[0] for op in ops]
+
+    assert "not_found" in op_types
+    assert "found" not in op_types
+    assert op_types[-1] == "done"
+
+    not_found_op = next(op for op in ops if op[0] == "not_found")
+    assert str(99) in not_found_op[2]
+
+
+def test_bst_search_empty_tree():
+    """Searching on an empty (None) tree immediately yields not_found then done."""
+    ops = list(bst_search(None, 5))
+    op_types = [op[0] for op in ops]
+
+    assert op_types == ["not_found", "done"]
+    assert ops[0][2] == "Tree is empty"
+    assert ops[0][3]["tree_snapshot"] == []
+
+
+# ---------------------------------------------------------------------------
+# TREE_ALGORITHM_INFO (Task 2)
+# ---------------------------------------------------------------------------
+
+def test_tree_algo_info_keys():
+    """TREE_ALGORITHM_INFO must contain all 9 required algorithm keys."""
+    required_keys = {
+        "BST Insert",
+        "BST Delete",
+        "BST Search",
+        "Inorder",
+        "Preorder",
+        "Postorder",
+        "Level-order",
+        "Heap Insert",
+        "Heap Extract",
+    }
+    assert required_keys == set(TREE_ALGORITHM_INFO.keys())
+
+
+def test_tree_algo_info_structure():
+    """Each entry in TREE_ALGORITHM_INFO must contain the expected metadata fields."""
+    required_fields = {"name", "time_best", "time_worst", "time_average", "space", "description"}
+    for key, info in TREE_ALGORITHM_INFO.items():
+        missing = required_fields - info.keys()
+        assert not missing, f"Entry '{key}' is missing fields: {missing}"

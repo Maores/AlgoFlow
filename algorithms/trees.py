@@ -152,3 +152,223 @@ def bst_from_values(values: List[int]) -> Optional[TreeNode]:
         _bst_insert(root, value)
 
     return root
+
+
+# ---------------------------------------------------------------------------
+# BST generator algorithms
+# ---------------------------------------------------------------------------
+
+def bst_insert(root: Optional[TreeNode], value: int):
+    """Generator that yields step-by-step animation ops for BST insertion.
+
+    Each yield is a 4-tuple: (op_type, node_id, message, data_dict).
+    The generator mutates the tree in-place.  When inserting at root
+    (root is None), the insert yield includes "new_root" in its data dict
+    so the caller can update their own reference.
+
+    Yield op_types:
+        "compare"  — currently examining this node
+        "insert"   — new node has been attached
+        "done"     — operation finished
+    """
+    if root is None:
+        new_node = TreeNode(value)
+        yield (
+            "insert",
+            new_node.id,
+            f"Insert {value}",
+            {"tree_snapshot": serialize_tree(new_node), "new_root": new_node},
+        )
+        yield (
+            "done",
+            None,
+            f"Inserted {value}",
+            {"tree_snapshot": serialize_tree(new_node)},
+        )
+        return
+
+    current = root
+    parent = None
+    went_left = None
+
+    while current is not None:
+        yield (
+            "compare",
+            current.id,
+            f"Compare {value} with {current.value}",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        parent = current
+        if value < current.value:
+            went_left = True
+            current = current.left
+        else:
+            went_left = False
+            current = current.right
+
+    # Attach the new node to the parent.
+    new_node = TreeNode(value)
+    if went_left:
+        parent.left = new_node
+    else:
+        parent.right = new_node
+
+    yield (
+        "insert",
+        new_node.id,
+        f"Insert {value}",
+        {"tree_snapshot": serialize_tree(root)},
+    )
+    yield (
+        "done",
+        None,
+        f"Inserted {value}",
+        {"tree_snapshot": serialize_tree(root)},
+    )
+
+
+def bst_search(root: Optional[TreeNode], value: int):
+    """Generator that yields step-by-step animation ops for BST search.
+
+    Each yield is a 4-tuple: (op_type, node_id, message, data_dict).
+
+    Yield op_types:
+        "compare"   — currently examining this node
+        "found"     — value exists at this node
+        "not_found" — value is not in the tree
+        "done"      — operation finished
+    """
+    if root is None:
+        yield (
+            "not_found",
+            None,
+            "Tree is empty",
+            {"tree_snapshot": []},
+        )
+        yield (
+            "done",
+            None,
+            "Search complete",
+            {"tree_snapshot": []},
+        )
+        return
+
+    current = root
+    while current is not None:
+        yield (
+            "compare",
+            current.id,
+            f"Compare {value} with {current.value}",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        if value == current.value:
+            yield (
+                "found",
+                current.id,
+                f"Found {value}",
+                {"tree_snapshot": serialize_tree(root)},
+            )
+            yield (
+                "done",
+                current.id,
+                "Search complete",
+                {"tree_snapshot": serialize_tree(root)},
+            )
+            return
+        elif value < current.value:
+            current = current.left
+        else:
+            current = current.right
+
+    yield (
+        "not_found",
+        None,
+        f"{value} not in tree",
+        {"tree_snapshot": serialize_tree(root)},
+    )
+    yield (
+        "done",
+        None,
+        "Search complete",
+        {"tree_snapshot": serialize_tree(root)},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Algorithm metadata
+# ---------------------------------------------------------------------------
+
+TREE_ALGORITHM_INFO = {
+    "BST Insert": {
+        "name": "BST Insert",
+        "time_best": "O(log n)",
+        "time_worst": "O(n)",
+        "time_average": "O(log n)",
+        "space": "O(h)",
+        "description": "Insert value maintaining BST property",
+    },
+    "BST Delete": {
+        "name": "BST Delete",
+        "time_best": "O(log n)",
+        "time_worst": "O(n)",
+        "time_average": "O(log n)",
+        "space": "O(h)",
+        "description": "Remove value, restructure as needed",
+    },
+    "BST Search": {
+        "name": "BST Search",
+        "time_best": "O(1)",
+        "time_worst": "O(n)",
+        "time_average": "O(log n)",
+        "space": "O(1)",
+        "description": "Find value by comparing at each node",
+    },
+    "Inorder": {
+        "name": "Inorder Traversal",
+        "time_best": "O(n)",
+        "time_worst": "O(n)",
+        "time_average": "O(n)",
+        "space": "O(h)",
+        "description": "Left → Root → Right",
+    },
+    "Preorder": {
+        "name": "Preorder Traversal",
+        "time_best": "O(n)",
+        "time_worst": "O(n)",
+        "time_average": "O(n)",
+        "space": "O(h)",
+        "description": "Root → Left → Right",
+    },
+    "Postorder": {
+        "name": "Postorder Traversal",
+        "time_best": "O(n)",
+        "time_worst": "O(n)",
+        "time_average": "O(n)",
+        "space": "O(h)",
+        "description": "Left → Right → Root",
+    },
+    "Level-order": {
+        "name": "Level-order Traversal",
+        "time_best": "O(n)",
+        "time_worst": "O(n)",
+        "time_average": "O(n)",
+        "space": "O(n)",
+        "description": "Breadth-first, level by level",
+    },
+    "Heap Insert": {
+        "name": "Heap Insert",
+        "time_best": "O(1)",
+        "time_worst": "O(log n)",
+        "time_average": "O(log n)",
+        "space": "O(1)",
+        "description": "Append and sift up to restore heap",
+    },
+    "Heap Extract": {
+        "name": "Heap Extract-Min",
+        "time_best": "O(log n)",
+        "time_worst": "O(log n)",
+        "time_average": "O(log n)",
+        "space": "O(1)",
+        "description": "Remove min, sift down to restore heap",
+    },
+}
