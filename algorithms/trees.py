@@ -1,17 +1,20 @@
-"""Tree node data structures for AlgoFlow Trees tab.
+"""Tree node data structures and BST generator algorithms for AlgoFlow Trees tab.
 
 This module is the foundation for all tree algorithm visualizations.
 It provides:
   - TreeNode: binary tree node with unique ids (used for step snapshots)
   - serialize_tree / deserialize_tree: for time-travel (step backward)
   - bst_from_values: build a BST by sequential insertion
+  - bst_insert: step-by-step BST insertion generator
+  - bst_search: step-by-step BST search generator
+  - TREE_ALGORITHM_INFO: metadata dict for all supported tree algorithms
 
 No Pygame dependency — pure Python only.
 """
 
 from __future__ import annotations
 from collections import deque
-from typing import List, Dict, Optional
+from typing import Generator, Optional, Dict, Any, List, Tuple
 
 
 class TreeNode:
@@ -158,7 +161,7 @@ def bst_from_values(values: List[int]) -> Optional[TreeNode]:
 # BST generator algorithms
 # ---------------------------------------------------------------------------
 
-def bst_insert(root: Optional[TreeNode], value: int):
+def bst_insert(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
     """Generator that yields step-by-step animation ops for BST insertion.
 
     Each yield is a 4-tuple: (op_type, node_id, message, data_dict).
@@ -227,7 +230,7 @@ def bst_insert(root: Optional[TreeNode], value: int):
     )
 
 
-def bst_search(root: Optional[TreeNode], value: int):
+def bst_search(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
     """Generator that yields step-by-step animation ops for BST search.
 
     Each yield is a 4-tuple: (op_type, node_id, message, data_dict).
@@ -270,7 +273,7 @@ def bst_search(root: Optional[TreeNode], value: int):
             )
             yield (
                 "done",
-                current.id,
+                None,
                 "Search complete",
                 {"tree_snapshot": serialize_tree(root)},
             )
