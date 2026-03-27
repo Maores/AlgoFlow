@@ -230,6 +230,214 @@ def bst_insert(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Opt
     )
 
 
+def bst_delete(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator that yields step-by-step animation ops for BST deletion.
+
+    Each yield is a 4-tuple: (op_type, node_id, message, data_dict).
+    The generator mutates the tree in-place.
+
+    Yield op_types:
+        "compare"   — currently examining this node during search phase
+        "highlight" — found the target node (before any mutation)
+        "successor" — in-order successor identified (two-children case)
+        "copy"      — successor's value has been copied to target node
+        "remove"    — node has been physically removed / replaced
+        "not_found" — value is not in the tree
+        "done"      — operation finished
+
+    Special data keys:
+        "new_root"  — present in "remove" yield when the root itself is
+                      removed or replaced; value is the new root node or None.
+    """
+    # --- Empty tree ----------------------------------------------------------
+    if root is None:
+        yield (
+            "not_found",
+            None,
+            "Tree is empty",
+            {"tree_snapshot": []},
+        )
+        yield (
+            "done",
+            None,
+            f"Delete {value} complete",
+            {"tree_snapshot": []},
+        )
+        return
+
+    # --- Walk down the tree, tracking parent --------------------------------
+    current: Optional[TreeNode] = root
+    parent: Optional[TreeNode] = None
+    went_left: Optional[bool] = None  # which side of parent we're on
+
+    while current is not None:
+        yield (
+            "compare",
+            current.id,
+            f"Compare {value} with {current.value}",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        if value == current.value:
+            break
+        parent = current
+        if value < current.value:
+            went_left = True
+            current = current.left
+        else:
+            went_left = False
+            current = current.right
+    else:
+        # Loop finished without a break → value not found
+        yield (
+            "not_found",
+            None,
+            f"{value} not in tree",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        yield (
+            "done",
+            None,
+            f"Delete {value} complete",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        return
+
+    # --- current is the node to delete --------------------------------------
+    target = current
+
+    # ---- CASE: TWO CHILDREN ------------------------------------------------
+    if target.left is not None and target.right is not None:
+        # Step 1: highlight the target
+        yield (
+            "highlight",
+            target.id,
+            f"Found {value} — two children",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+
+        # Find in-order successor: go right once, then leftmost
+        succ_parent: TreeNode = target
+        successor: TreeNode = target.right
+        while successor.left is not None:
+            succ_parent = successor
+            successor = successor.left
+
+        # Step 2: identify the successor (tree still unchanged)
+        yield (
+            "successor",
+            successor.id,
+            f"Found in-order successor: {successor.value}",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+
+        # Copy successor value into target
+        target.value = successor.value
+
+        # Step 3: snapshot after copy (target shows new value)
+        yield (
+            "copy",
+            target.id,
+            f"Copied {successor.value} to node",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+
+        # Now delete the successor node (has at most a right child)
+        successor_id = successor.id
+        # The successor's only possible child is its right child
+        successor_child = successor.right
+        if succ_parent is target:
+            # Successor was target.right itself (no left subtree under right)
+            succ_parent.right = successor_child
+        else:
+            succ_parent.left = successor_child
+
+        # Step 4: snapshot after successor removal
+        yield (
+            "remove",
+            successor_id,
+            "Removed successor",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        yield (
+            "done",
+            None,
+            f"Deleted {value}",
+            {"tree_snapshot": serialize_tree(root)},
+        )
+        return
+
+    # ---- CASE: LEAF (no children) or ONE CHILD ----------------------------
+    # Determine the replacement child (None for leaf, the existing child otherwise)
+    if target.left is None and target.right is None:
+        case_label = "leaf node"
+        child = None
+    elif target.left is not None:
+        case_label = "one child"
+        child = target.left
+    else:
+        case_label = "one child"
+        child = target.right
+
+    yield (
+        "highlight",
+        target.id,
+        f"Found {value} — {case_label}",
+        {"tree_snapshot": serialize_tree(root)},
+    )
+
+    # Perform the removal / replacement
+    target_id = target.id
+    is_root = (parent is None)
+
+    if is_root:
+        # Removing/replacing the root: splice child into root position
+        # We cannot reassign the root variable here, so we signal via new_root.
+        # The mutation itself (replacing the root) is communicated to the caller
+        # via "new_root" in the remove yield's data dict.
+        remove_msg = (
+            f"Removed {value}"
+            if child is None
+            else f"Replaced {value} with child"
+        )
+        # Physically update the root in-place when it has one child:
+        # copy child's data into root so the caller's reference stays valid,
+        # OR rely on the caller to use new_root.
+        yield (
+            "remove",
+            target_id,
+            remove_msg,
+            {
+                "tree_snapshot": serialize_tree(child),  # snapshot of new tree
+                "new_root": child,
+            },
+        )
+    else:
+        # Non-root removal
+        if went_left:
+            parent.left = child
+        else:
+            parent.right = child
+
+        remove_msg = (
+            f"Removed {value}"
+            if child is None
+            else f"Replaced {value} with child"
+        )
+        yield (
+            "remove",
+            target_id,
+            remove_msg,
+            {"tree_snapshot": serialize_tree(root)},
+        )
+
+    yield (
+        "done",
+        None,
+        f"Deleted {value}",
+        {"tree_snapshot": serialize_tree(root if not is_root else child)},
+    )
+
+
 def bst_search(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
     """Generator that yields step-by-step animation ops for BST search.
 

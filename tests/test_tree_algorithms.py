@@ -8,6 +8,7 @@ from algorithms.trees import (
     bst_from_values,
     bst_insert,
     bst_search,
+    bst_delete,
     TREE_ALGORITHM_INFO,
 )
 
@@ -326,3 +327,195 @@ def test_tree_algo_info_structure():
     for key, info in TREE_ALGORITHM_INFO.items():
         missing = required_fields - info.keys()
         assert not missing, f"Entry '{key}' is missing fields: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# bst_delete generator (Task 3)
+# ---------------------------------------------------------------------------
+
+def test_bst_delete_leaf():
+    """Delete a leaf node: expect exactly highlight, remove, done (3 yields after compares)."""
+    TreeNode.reset_counter()
+    #        50
+    #       /  \
+    #     30    70
+    root = bst_from_values([50, 30, 70])
+    leaf_id = root.left.id  # 30 is a leaf
+
+    ops = list(bst_delete(root, 30))
+    op_types = [op[0] for op in ops]
+
+    # Last three ops must be highlight, remove, done
+    assert op_types[-3] == "highlight"
+    assert op_types[-2] == "remove"
+    assert op_types[-1] == "done"
+
+    # Highlight message indicates leaf node
+    highlight_op = next(op for op in ops if op[0] == "highlight")
+    assert "leaf" in highlight_op[2]
+
+    # Remove op carries the correct node id
+    remove_op = next(op for op in ops if op[0] == "remove")
+    assert remove_op[1] == leaf_id
+
+    # Tree structure after deletion: 30 should be gone
+    assert root.left is None
+    assert root.value == 50
+    assert root.right.value == 70
+
+
+def test_bst_delete_one_child():
+    """Delete a node that has exactly one child; verify child is promoted."""
+    TreeNode.reset_counter()
+    #        50
+    #       /  \
+    #     30    70
+    #       \
+    #       40
+    root = bst_from_values([50, 30, 70, 40])
+    node_30_id = root.left.id
+
+    ops = list(bst_delete(root, 30))
+    op_types = [op[0] for op in ops]
+
+    assert op_types[-3] == "highlight"
+    assert op_types[-2] == "remove"
+    assert op_types[-1] == "done"
+
+    highlight_op = next(op for op in ops if op[0] == "highlight")
+    assert "one child" in highlight_op[2]
+
+    remove_op = next(op for op in ops if op[0] == "remove")
+    assert remove_op[1] == node_30_id
+
+    # After deletion, 40 should now be root's left child
+    assert root.left is not None
+    assert root.left.value == 40
+
+
+def test_bst_delete_two_children():
+    """Delete node with two children: must yield exactly 5 ops after compares."""
+    TreeNode.reset_counter()
+    #        50
+    #       /  \
+    #     30    70
+    #    /  \
+    #   20   40
+    root = bst_from_values([50, 30, 70, 20, 40])
+    target_id = root.left.id  # 30, has two children
+
+    ops = list(bst_delete(root, 30))
+    op_types = [op[0] for op in ops]
+
+    # The final 5 ops must be: highlight, successor, copy, remove, done
+    assert op_types[-5] == "highlight"
+    assert op_types[-4] == "successor"
+    assert op_types[-3] == "copy"
+    assert op_types[-2] == "remove"
+    assert op_types[-1] == "done"
+
+    highlight_op = next(op for op in ops if op[0] == "highlight")
+    assert "two children" in highlight_op[2]
+    assert highlight_op[1] == target_id
+
+    successor_op = next(op for op in ops if op[0] == "successor")
+    # In-order successor of 30 is 40 (go right to 40, no left subtree)
+    assert successor_op[2] == "Found in-order successor: 40"
+
+    copy_op = next(op for op in ops if op[0] == "copy")
+    assert copy_op[1] == target_id
+
+    remove_op = next(op for op in ops if op[0] == "remove")
+    assert remove_op[2] == "Removed successor"
+
+    # After deletion, node that was 30 now holds 40, and old 40 node is gone
+    assert root.left.value == 40
+    assert root.left.right is None  # old 40 is removed
+
+
+def test_bst_delete_root_leaf():
+    """Delete the root when it is also a leaf: remove yield must include new_root=None."""
+    TreeNode.reset_counter()
+    root = bst_from_values([42])
+
+    ops = list(bst_delete(root, 42))
+    op_types = [op[0] for op in ops]
+
+    assert op_types[-3] == "highlight"
+    assert op_types[-2] == "remove"
+    assert op_types[-1] == "done"
+
+    remove_op = next(op for op in ops if op[0] == "remove")
+    assert "new_root" in remove_op[3]
+    assert remove_op[3]["new_root"] is None
+
+
+def test_bst_delete_not_found():
+    """Searching for a non-existent value must produce a not_found yield."""
+    TreeNode.reset_counter()
+    root = bst_from_values([50, 30, 70])
+
+    ops = list(bst_delete(root, 99))
+    op_types = [op[0] for op in ops]
+
+    assert "not_found" in op_types
+    assert op_types[-1] == "done"
+    # Tree must be unchanged
+    assert root.value == 50
+    assert root.left.value == 30
+    assert root.right.value == 70
+
+
+def test_bst_delete_empty():
+    """Delete from an empty tree: first yield must be not_found immediately."""
+    ops = list(bst_delete(None, 5))
+    op_types = [op[0] for op in ops]
+
+    assert op_types[0] == "not_found"
+    assert op_types[1] == "done"
+    assert ops[0][2] == "Tree is empty"
+    assert ops[0][3]["tree_snapshot"] == []
+
+
+def test_bst_delete_two_children_snapshots():
+    """Verify snapshot integrity across the 4 steps of a two-children deletion."""
+    TreeNode.reset_counter()
+    #        50
+    #       /  \
+    #     30    70
+    #    /  \
+    #   20   40
+    root = bst_from_values([50, 30, 70, 20, 40])
+
+    ops = list(bst_delete(root, 30))
+
+    highlight_op = next(op for op in ops if op[0] == "highlight")
+    successor_op = next(op for op in ops if op[0] == "successor")
+    copy_op = next(op for op in ops if op[0] == "copy")
+    remove_op = next(op for op in ops if op[0] == "remove")
+
+    # Step 1 (highlight): tree snapshot must still show 30 at the target node
+    h_snapshot = {rec["id"]: rec for rec in highlight_op[3]["tree_snapshot"]}
+    target_id = root.left.id  # node that originally was 30, now holds 40 after copy
+    # At highlight step the target node's value should be 30
+    # We find the record whose id matches the node that WAS 30.
+    # Since we haven't mutated yet, look for value==30 in the snapshot.
+    values_in_highlight = {rec["value"] for rec in highlight_op[3]["tree_snapshot"]}
+    assert 30 in values_in_highlight
+
+    # Step 2 (successor): tree still unchanged — 30 still present
+    values_in_successor = {rec["value"] for rec in successor_op[3]["tree_snapshot"]}
+    assert 30 in values_in_successor
+    assert 40 in values_in_successor
+
+    # Step 3 (copy): target now shows successor's value (40), old 40 still present
+    # After copy: node formerly holding 30 now holds 40, and old successor (40) still exists
+    copy_snapshot_values = [rec["value"] for rec in copy_op[3]["tree_snapshot"]]
+    # There must now be TWO nodes with value 40 in the snapshot
+    assert copy_snapshot_values.count(40) == 2
+
+    # Step 4 (remove): successor is gone — only one 40 remains
+    remove_snapshot_values = [rec["value"] for rec in remove_op[3]["tree_snapshot"]]
+    assert remove_snapshot_values.count(40) == 1
+    # And 30 must be gone
+    assert 30 not in remove_snapshot_values
