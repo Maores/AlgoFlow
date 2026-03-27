@@ -89,6 +89,13 @@ def deserialize_tree(data: List[Dict]) -> Optional[TreeNode]:
     if not data:
         return None
 
+    # Validate that every entry has the required keys before processing.
+    required_keys = {"id", "value", "left_id", "right_id"}
+    for node_data in data:
+        if not required_keys.issubset(node_data.keys()):
+            missing = required_keys - node_data.keys()
+            raise ValueError(f"Invalid snapshot entry — missing keys: {missing}")
+
     # Pass 1: create all nodes (without links), keyed by id.
     nodes: Dict[int, TreeNode] = {}
     for record in data:
@@ -122,7 +129,7 @@ def _bst_insert(root: TreeNode, value: int) -> None:
                 current.left = TreeNode(value)
                 return
             current = current.left
-        else:
+        else:  # duplicates go right by convention
             if current.right is None:
                 current.right = TreeNode(value)
                 return
@@ -135,6 +142,7 @@ def bst_from_values(values: List[int]) -> Optional[TreeNode]:
     Uses standard BST insertion (no balancing).  Does NOT reset the
     TreeNode counter — relies on whatever the current counter state is.
     Returns None for an empty list.
+    Duplicate values are inserted to the right subtree.
     """
     if not values:
         return None

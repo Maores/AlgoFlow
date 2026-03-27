@@ -10,7 +10,6 @@ from algorithms.trees import TreeNode, serialize_tree, deserialize_tree, bst_fro
 
 def test_treenode_unique_ids():
     """Two nodes created in sequence must have different ids."""
-    TreeNode.reset_counter()
     a = TreeNode(10)
     b = TreeNode(20)
     assert a.id != b.id
@@ -38,7 +37,6 @@ def test_serialize_empty():
 
 def test_serialize_single_node():
     """A single root node serializes to one dict with no children."""
-    TreeNode.reset_counter()
     root = TreeNode(42)
     result = serialize_tree(root)
     assert len(result) == 1
@@ -51,7 +49,6 @@ def test_serialize_single_node():
 
 def test_serialize_includes_all_nodes():
     """serialize_tree includes every node in the tree."""
-    TreeNode.reset_counter()
     root = TreeNode(1)
     root.left = TreeNode(2)
     root.right = TreeNode(3)
@@ -69,7 +66,6 @@ def test_serialize_includes_all_nodes():
 
 def test_serialize_deserialize_roundtrip():
     """Build a tree, serialize, deserialize, and verify structure matches."""
-    TreeNode.reset_counter()
     #       10
     #      /  \
     #     5   15
@@ -104,7 +100,6 @@ def test_deserialize_empty():
 
 def test_deserialize_preserves_ids():
     """Deserialized nodes keep their original ids."""
-    TreeNode.reset_counter()
     root = TreeNode(10)
     root.left = TreeNode(5)
     original_root_id = root.id
@@ -129,7 +124,6 @@ def test_bst_from_values_empty():
 
 def test_bst_from_values_order():
     """bst_from_values([40, 20, 60]) builds a correct BST structure."""
-    TreeNode.reset_counter()
     root = bst_from_values([40, 20, 60])
 
     assert root is not None
@@ -147,7 +141,6 @@ def test_bst_from_values_order():
 
 def test_bst_from_values_deeper():
     """bst_from_values with more values places nodes at correct BST positions."""
-    TreeNode.reset_counter()
     root = bst_from_values([50, 30, 70, 20, 40])
     #        50
     #       /  \
@@ -166,10 +159,27 @@ def test_bst_from_values_deeper():
 
 def test_bst_from_values_does_not_reset_counter():
     """bst_from_values should NOT reset the counter — uses current counter state."""
-    TreeNode.reset_counter()
     # Advance counter by 2
     TreeNode(99)
     TreeNode(99)
     root = bst_from_values([10])
     # The first node created by bst_from_values should get id 2 (not 0)
     assert root.id == 2
+
+
+def test_bst_from_values_duplicate():
+    """Duplicate values are inserted to the right subtree by convention."""
+    root = bst_from_values([5, 5])
+    assert root.right is not None
+    assert root.right.value == 5
+
+
+# ---------------------------------------------------------------------------
+# deserialize_tree input validation
+# ---------------------------------------------------------------------------
+
+def test_deserialize_missing_key_raises_value_error():
+    """deserialize_tree raises ValueError if a required key is missing."""
+    bad_data = [{"id": 0, "value": 10}]  # missing left_id and right_id
+    with pytest.raises(ValueError, match="missing keys"):
+        deserialize_tree(bad_data)
