@@ -349,11 +349,13 @@ class App:
             self.control_y + (CONTROL_PANEL_HEIGHT - self.pf_help_btn.rect.height) // 2
         )
 
-        # Edit mode group — just below the header bar
+        # Edit mode group — just below the header bar, with label
         canvas_left = self.canvas_rect.x
-        edit_x = canvas_left + 12
+        edit_label_w = self.font_small.size("Draw:")[0] + 8
+        edit_x = canvas_left + 12 + edit_label_w
         edit_y = HEADER_HEIGHT + 4
         self.pf_edit_mode_group.set_position(edit_x, edit_y)
+        self.pf_edit_label_pos = (canvas_left + 12, edit_y + 8)
 
     def _update_info_panel(self):
         tab = self.tab_bar.get_active_tab()
@@ -734,7 +736,9 @@ class App:
             self.pf_preset_group.draw(self.screen)
             self.pf_clear_btn.draw(self.screen)
             self.pf_help_btn.draw(self.screen)
-            # Edit mode toolbar above the canvas
+            # Edit mode toolbar above the canvas (with label)
+            label_surf = self.font_small.render("Draw:", True, Colors.TEXT_SECONDARY)
+            self.screen.blit(label_surf, self.pf_edit_label_pos)
             self.pf_edit_mode_group.draw(self.screen)
 
         # Modal overlays (drawn last, on top of everything)

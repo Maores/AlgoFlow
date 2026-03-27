@@ -188,7 +188,7 @@ class InfoPanel:
         title_h = 45
         row_sp = 29
         stat_sp = 33
-        legend_sp = 33
+        legend_sp = 28
         var_sp = 27
         code_line_h = 23
         bottom_pad = 18
@@ -238,10 +238,10 @@ class InfoPanel:
         # LIVE STATS — dynamic height, always reserves 2 status text lines
         card2_h = card_pad + header_h + stats_rows * stat_sp + 2 * 24 + bottom_pad
 
-        # PSEUDOCODE — fixed height based on longest algorithm (Quick Sort = 13 lines)
+        # PSEUDOCODE — sized to current algorithm's actual line count
         pc_data = PSEUDOCODE.get(self.algorithm_key)
-        max_pc_lines = max(len(v["lines"]) for v in PSEUDOCODE.values())
-        card_pseudo_h = card_pad + header_h + max_pc_lines * code_line_h + bottom_pad
+        actual_pc_lines = len(pc_data["lines"]) if pc_data else 0
+        card_pseudo_h = card_pad + header_h + actual_pc_lines * code_line_h + bottom_pad
 
         # Variables card (desired height, may be clamped)
         has_vars = bool(self.current_pointers)
@@ -319,17 +319,27 @@ class InfoPanel:
         if pc_data is not None:
             highlighted = set(pc_data["highlight_map"].get(self.current_op_type, []))
             code_top = cy
+            # Hard-clip to card boundary to prevent any text overflow
+            clip_rect = pygame.Rect(px, py, card_width, card_pseudo_h)
+            surface.set_clip(clip_rect)
             for i, line_text in enumerate(pc_data["lines"]):
                 line_y = code_top + i * code_line_h
+                # Truncate text to fit within card width
+                display_text = line_text
+                if self.font_mono.size(display_text)[0] > inner_width:
+                    while len(display_text) > 1 and self.font_mono.size(display_text + "..")[0] > inner_width:
+                        display_text = display_text[:-1]
+                    display_text = display_text + ".."
                 if i in highlighted:
                     hl_rect = pygame.Rect(cx - 4, line_y - 2, inner_width + 8, code_line_h)
                     hl_surf = pygame.Surface((hl_rect.width, hl_rect.height), pygame.SRCALPHA)
                     hl_surf.fill((60, 130, 200, 50))
                     surface.blit(hl_surf, hl_rect)
-                    text_surf = self.font_mono.render(line_text, True, Colors.TEXT_PRIMARY)
+                    text_surf = self.font_mono.render(display_text, True, Colors.TEXT_PRIMARY)
                 else:
-                    text_surf = self.font_mono.render(line_text, True, Colors.TEXT_SECONDARY)
+                    text_surf = self.font_mono.render(display_text, True, Colors.TEXT_SECONDARY)
                 surface.blit(text_surf, (cx, line_y))
+            surface.set_clip(None)
 
         py += card_pseudo_h + card_gap
 

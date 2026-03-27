@@ -68,7 +68,7 @@ class HelpModal:
             self.close_btn_size, self.close_btn_size
         )
         self._overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-        self._overlay.fill((0, 0, 0, 140))
+        self._overlay.fill((0, 0, 0, 240))
 
     def handle_event(self, event):
         """Returns {'action': 'close'} or None."""

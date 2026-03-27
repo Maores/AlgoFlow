@@ -47,7 +47,7 @@ class ArrayModal:
         self.screen_w = screen_width
         self.screen_h = screen_height
         self.card_w = 520
-        self.card_h = 400
+        self.card_h = 450
         self._rebuild_layout()
 
     # ------------------------------------------------------------------
@@ -74,7 +74,7 @@ class ArrayModal:
         self.valid_pos = (cx + pad, input_y + input_h + 8)
 
         # Size selector row:  [-]  [__]  [+]
-        size_row_y = input_y + input_h + 38
+        size_row_y = input_y + input_h + 78
         sq = 28
         size_input_w = 50
         gap_s = 8
@@ -85,7 +85,7 @@ class ArrayModal:
         self.plus_rect = pygame.Rect(size_x + sq + gap_s + size_input_w + gap_s, size_row_y, sq, sq)
 
         # "or" divider between input and size section
-        self.or_y = size_row_y - 16
+        self.or_y = size_row_y - 38
 
         # Preset row
         preset_y = size_row_y + sq + 14
@@ -121,7 +121,7 @@ class ArrayModal:
 
         # Rebuild overlay
         self._overlay = pygame.Surface((self.screen_w, self.screen_h), pygame.SRCALPHA)
-        self._overlay.fill((0, 0, 0, 140))
+        self._overlay.fill((0, 0, 0, 240))
 
     # ------------------------------------------------------------------
     # Public interface
