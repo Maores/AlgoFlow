@@ -1,4 +1,4 @@
-"""Tests for tree data structures and BST generators (Tasks 1 & 2)."""
+"""Tests for tree data structures and BST generators (Tasks 1, 2 & 3)."""
 
 import pytest
 from algorithms.trees import (

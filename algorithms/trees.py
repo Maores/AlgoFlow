@@ -6,6 +6,7 @@ It provides:
   - serialize_tree / deserialize_tree: for time-travel (step backward)
   - bst_from_values: build a BST by sequential insertion
   - bst_insert: step-by-step BST insertion generator
+  - bst_delete: step-by-step BST deletion generator (leaf/one-child/two-children)
   - bst_search: step-by-step BST search generator
   - TREE_ALGORITHM_INFO: metadata dict for all supported tree algorithms
 
@@ -317,6 +318,7 @@ def bst_delete(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Opt
 
         # Find in-order successor: go right once, then leftmost
         succ_parent: TreeNode = target
+        # Safe: target.right is guaranteed non-None by two-children guard above
         successor: TreeNode = target.right
         while successor.left is not None:
             succ_parent = successor
@@ -430,6 +432,7 @@ def bst_delete(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Opt
             {"tree_snapshot": serialize_tree(root)},
         )
 
+    # For root replacement, snapshot uses child (new root); same state as remove yield — intentional
     yield (
         "done",
         None,
