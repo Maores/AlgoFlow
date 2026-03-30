@@ -441,6 +441,79 @@ def bst_delete(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Opt
     )
 
 
+# ---------------------------------------------------------------------------
+# Traversal generators
+# ---------------------------------------------------------------------------
+
+def inorder_traversal(root: Optional[TreeNode]) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step inorder traversal: left -> visit -> right."""
+    if root is None:
+        yield ("done", None, "Tree is empty", {"tree_snapshot": []})
+        return
+
+    def _inorder(node: TreeNode) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+        if node.left:
+            yield from _inorder(node.left)
+        yield ("visit", node.id, f"Visit {node.value}", {"tree_snapshot": serialize_tree(root)})
+        if node.right:
+            yield from _inorder(node.right)
+
+    yield from _inorder(root)
+    yield ("done", None, "Inorder traversal complete", {"tree_snapshot": serialize_tree(root)})
+
+
+def preorder_traversal(root: Optional[TreeNode]) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step preorder traversal: visit -> left -> right."""
+    if root is None:
+        yield ("done", None, "Tree is empty", {"tree_snapshot": []})
+        return
+
+    def _preorder(node: TreeNode) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+        yield ("visit", node.id, f"Visit {node.value}", {"tree_snapshot": serialize_tree(root)})
+        if node.left:
+            yield from _preorder(node.left)
+        if node.right:
+            yield from _preorder(node.right)
+
+    yield from _preorder(root)
+    yield ("done", None, "Preorder traversal complete", {"tree_snapshot": serialize_tree(root)})
+
+
+def postorder_traversal(root: Optional[TreeNode]) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step postorder traversal: left -> right -> visit."""
+    if root is None:
+        yield ("done", None, "Tree is empty", {"tree_snapshot": []})
+        return
+
+    def _postorder(node: TreeNode) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+        if node.left:
+            yield from _postorder(node.left)
+        if node.right:
+            yield from _postorder(node.right)
+        yield ("visit", node.id, f"Visit {node.value}", {"tree_snapshot": serialize_tree(root)})
+
+    yield from _postorder(root)
+    yield ("done", None, "Postorder traversal complete", {"tree_snapshot": serialize_tree(root)})
+
+
+def levelorder_traversal(root: Optional[TreeNode]) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step level-order (BFS) traversal."""
+    if root is None:
+        yield ("done", None, "Tree is empty", {"tree_snapshot": []})
+        return
+
+    queue: deque[TreeNode] = deque([root])
+    while queue:
+        node = queue.popleft()
+        yield ("visit", node.id, f"Visit {node.value}", {"tree_snapshot": serialize_tree(root)})
+        if node.left:
+            queue.append(node.left)
+        if node.right:
+            queue.append(node.right)
+
+    yield ("done", None, "Level-order traversal complete", {"tree_snapshot": serialize_tree(root)})
+
+
 def bst_search(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
     """Generator that yields step-by-step animation ops for BST search.
 

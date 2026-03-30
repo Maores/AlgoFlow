@@ -9,6 +9,10 @@ from algorithms.trees import (
     bst_insert,
     bst_search,
     bst_delete,
+    inorder_traversal,
+    preorder_traversal,
+    postorder_traversal,
+    levelorder_traversal,
     TREE_ALGORITHM_INFO,
 )
 
@@ -519,3 +523,76 @@ def test_bst_delete_two_children_snapshots():
     assert remove_snapshot_values.count(40) == 1
     # And 30 must be gone
     assert 30 not in remove_snapshot_values
+
+
+# ---------------------------------------------------------------------------
+# Traversal generators (Task 4)
+# ---------------------------------------------------------------------------
+
+def _build_test_tree():
+    """Build BST from [40, 20, 60, 10, 30, 50, 70] with deterministic ids."""
+    TreeNode.reset_counter()
+    return bst_from_values([40, 20, 60, 10, 30, 50, 70])
+
+
+def _visit_values(ops):
+    """Extract the visited values (from message) in order from traversal ops."""
+    return [int(op[2].split()[-1]) for op in ops if op[0] == "visit"]
+
+
+def test_inorder_traversal_order():
+    """Inorder traversal visits nodes in sorted order: [10, 20, 30, 40, 50, 60, 70]."""
+    root = _build_test_tree()
+    ops = list(inorder_traversal(root))
+    assert _visit_values(ops) == [10, 20, 30, 40, 50, 60, 70]
+
+
+def test_preorder_traversal_order():
+    """Preorder traversal visits root first: [40, 20, 10, 30, 60, 50, 70]."""
+    root = _build_test_tree()
+    ops = list(preorder_traversal(root))
+    assert _visit_values(ops) == [40, 20, 10, 30, 60, 50, 70]
+
+
+def test_postorder_traversal_order():
+    """Postorder traversal visits root last: [10, 30, 20, 50, 70, 60, 40]."""
+    root = _build_test_tree()
+    ops = list(postorder_traversal(root))
+    assert _visit_values(ops) == [10, 30, 20, 50, 70, 60, 40]
+
+
+def test_levelorder_traversal_order():
+    """Level-order traversal visits by level: [40, 20, 60, 10, 30, 50, 70]."""
+    root = _build_test_tree()
+    ops = list(levelorder_traversal(root))
+    assert _visit_values(ops) == [40, 20, 60, 10, 30, 50, 70]
+
+
+def test_traversal_empty_tree():
+    """Each traversal on None yields only a done tuple with empty snapshot."""
+    for traversal_fn in [inorder_traversal, preorder_traversal, postorder_traversal, levelorder_traversal]:
+        ops = list(traversal_fn(None))
+        assert len(ops) == 1
+        assert ops[0][0] == "done"
+        assert ops[0][3]["tree_snapshot"] == []
+
+
+def test_traversal_yields_have_snapshot():
+    """Every yield from every traversal must include 'tree_snapshot' in data."""
+    root = _build_test_tree()
+    for traversal_fn in [inorder_traversal, preorder_traversal, postorder_traversal, levelorder_traversal]:
+        ops = list(traversal_fn(root))
+        for op in ops:
+            assert "tree_snapshot" in op[3], f"{traversal_fn.__name__} yield missing tree_snapshot: {op}"
+
+
+def test_traversal_single_node():
+    """Traversal on a single node yields exactly one visit + one done."""
+    TreeNode.reset_counter()
+    root = TreeNode(42)
+    for traversal_fn in [inorder_traversal, preorder_traversal, postorder_traversal, levelorder_traversal]:
+        ops = list(traversal_fn(root))
+        op_types = [op[0] for op in ops]
+        assert op_types == ["visit", "done"], f"{traversal_fn.__name__} got {op_types}"
+        assert ops[0][1] == root.id
+        assert ops[0][2] == "Visit 42"
