@@ -69,6 +69,9 @@ class Colors:
     NODE_HIGHLIGHT = (255, 200, 50)
     NODE_FOUND = (50, 200, 100)
     NODE_NOT_FOUND = (230, 70, 70)
+    NODE_COMPARING = (230, 70, 70)
+    NODE_SUCCESSOR = (255, 165, 0)
+    NODE_VISITED = (120, 80, 160)
     EDGE_COLOR = (100, 100, 130)
 
     # UI elements
@@ -116,6 +119,14 @@ GRID_SIZES = {
 DEFAULT_GRID_SIZE = "Medium"
 GRID_SIZE_OPTIONS = ["Small", "Medium", "Large"]
 CELL_GAP = 1
+
+# --- Tree visualization ---
+TREE_NODE_RADIUS = 24
+TREE_LEVEL_GAP = 80
+TREE_MIN_H_SPACING = 50
+TREE_EDGE_WIDTH = 2
+HEAP_STRIP_HEIGHT = 60
+DEFAULT_BST_VALUES = [40, 20, 60, 10, 30, 50, 70]
 
 # Tabs
 TABS = ["Sorting", "Pathfinding", "Trees"]

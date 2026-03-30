@@ -138,4 +138,152 @@ PSEUDOCODE = {
             "done": [],
         }
     },
+    # --- Tree algorithms ---
+    "BST Insert": {
+        "lines": [
+            "function insert(root, val):",
+            "  if root is null:",
+            "    return new Node(val)",
+            "  if val < root.val:",
+            "    root.left = insert(left, val)",
+            "  else:",
+            "    root.right = insert(right, val)",
+            "  return root",
+        ],
+        "highlight_map": {
+            "compare": [3, 5],
+            "insert": [1, 2],
+            "done": [],
+        },
+    },
+    "BST Delete": {
+        "lines": [
+            "function delete(root, val):",
+            "  find node with val",
+            "  if leaf: remove node",
+            "  if one child: replace with child",
+            "  if two children:",
+            "    find inorder successor",
+            "    copy successor val to node",
+            "    delete successor",
+        ],
+        "highlight_map": {
+            "compare": [1],
+            "highlight": [1],
+            "successor": [5],
+            "copy": [6],
+            "remove": [2, 3, 7],
+            "not_found": [1],
+            "done": [],
+        },
+    },
+    "BST Search": {
+        "lines": [
+            "function search(root, val):",
+            "  if root is null: not found",
+            "  if val = root.val: found!",
+            "  if val < root.val:",
+            "    return search(left, val)",
+            "  else:",
+            "    return search(right, val)",
+        ],
+        "highlight_map": {
+            "compare": [3, 5],
+            "found": [2],
+            "not_found": [1],
+            "done": [],
+        },
+    },
+    "Inorder": {
+        "lines": [
+            "function inorder(node):",
+            "  if node is null: return",
+            "  inorder(node.left)",
+            "  visit(node)",
+            "  inorder(node.right)",
+        ],
+        "highlight_map": {
+            "visit": [3],
+            "done": [],
+        },
+    },
+    "Preorder": {
+        "lines": [
+            "function preorder(node):",
+            "  if node is null: return",
+            "  visit(node)",
+            "  preorder(node.left)",
+            "  preorder(node.right)",
+        ],
+        "highlight_map": {
+            "visit": [2],
+            "done": [],
+        },
+    },
+    "Postorder": {
+        "lines": [
+            "function postorder(node):",
+            "  if node is null: return",
+            "  postorder(node.left)",
+            "  postorder(node.right)",
+            "  visit(node)",
+        ],
+        "highlight_map": {
+            "visit": [4],
+            "done": [],
+        },
+    },
+    "Level-order": {
+        "lines": [
+            "function levelorder(root):",
+            "  queue ← [root]",
+            "  while queue not empty:",
+            "    node ← dequeue()",
+            "    visit(node)",
+            "    enqueue(node.left)",
+            "    enqueue(node.right)",
+        ],
+        "highlight_map": {
+            "visit": [4],
+            "done": [],
+        },
+    },
+    "Heap Insert": {
+        "lines": [
+            "function heapInsert(arr, val):",
+            "  arr.append(val)",
+            "  i ← len(arr) - 1",
+            "  while i > 0:",
+            "    parent ← (i-1) / 2",
+            "    if arr[i] < arr[parent]:",
+            "      swap(arr[i], arr[parent])",
+            "      i ← parent",
+            "    else: break",
+        ],
+        "highlight_map": {
+            "compare": [5],
+            "swap": [6],
+            "done": [],
+        },
+    },
+    "Heap Extract": {
+        "lines": [
+            "function extractMin(arr):",
+            "  swap(arr[0], arr[last])",
+            "  arr.pop()",
+            "  i ← 0",
+            "  while has children:",
+            "    smallest ← min child",
+            "    if arr[i] > arr[smallest]:",
+            "      swap(arr[i], arr[smallest])",
+            "      i ← smallest",
+            "    else: break",
+        ],
+        "highlight_map": {
+            "compare": [6],
+            "swap": [1, 7],
+            "error": [],
+            "done": [],
+        },
+    },
 }
