@@ -13,6 +13,8 @@ from algorithms.trees import (
     preorder_traversal,
     postorder_traversal,
     levelorder_traversal,
+    heap_insert,
+    heap_extract_min,
     TREE_ALGORITHM_INFO,
 )
 
@@ -596,3 +598,97 @@ def test_traversal_single_node():
         assert op_types == ["visit", "done"], f"{traversal_fn.__name__} got {op_types}"
         assert ops[0][1] == root.id
         assert ops[0][2] == "Visit 42"
+
+
+# ---------------------------------------------------------------------------
+# Heap generators (Task 5)
+# ---------------------------------------------------------------------------
+
+def _is_valid_min_heap(arr):
+    """Check if array satisfies min-heap property."""
+    for i in range(len(arr)):
+        left = 2 * i + 1
+        right = 2 * i + 2
+        if left < len(arr) and arr[i] > arr[left]:
+            return False
+        if right < len(arr) and arr[i] > arr[right]:
+            return False
+    return True
+
+
+def test_heap_insert_basic():
+    """Insert 3 values into empty array; final array must be a valid min-heap."""
+    heap = []
+    for v in [5, 3, 7]:
+        list(heap_insert(heap, v))
+    assert _is_valid_min_heap(heap)
+    assert sorted(heap) == [3, 5, 7]
+
+
+def test_heap_insert_sift_up():
+    """Insert value that must sift up; verify at least one swap yield."""
+    heap = [1, 5, 3, 7]
+    ops = list(heap_insert(heap, 2))
+    swap_ops = [op for op in ops if op[0] == "swap"]
+    assert len(swap_ops) >= 1
+    assert _is_valid_min_heap(heap)
+
+
+def test_heap_insert_no_swap():
+    """Insert value larger than parent; no swap yields (only compare + done)."""
+    heap = [1, 5, 3]
+    ops = list(heap_insert(heap, 10))
+    swap_ops = [op for op in ops if op[0] == "swap"]
+    assert len(swap_ops) == 0
+    op_types = [op[0] for op in ops]
+    assert "compare" in op_types
+    assert op_types[-1] == "done"
+
+
+def test_heap_insert_snapshot_copies():
+    """Each yielded heap_array must be a different list object (not same reference)."""
+    heap = []
+    ops = list(heap_insert(heap, 5))
+    arrays = [op[3]["heap_array"] for op in ops]
+    # Every snapshot must be a distinct list object
+    for i in range(len(arrays)):
+        for j in range(i + 1, len(arrays)):
+            assert arrays[i] is not arrays[j]
+    # And none should be the same object as the original heap
+    for arr in arrays:
+        assert arr is not heap
+
+
+def test_heap_extract_min_basic():
+    """Extract from [1, 5, 3, 7, 6]; extracted value is 1 and remaining is valid min-heap."""
+    heap = [1, 5, 3, 7, 6]
+    ops = list(heap_extract_min(heap))
+    done_op = next(op for op in ops if op[0] == "done")
+    assert "1" in done_op[2]
+    assert 1 not in heap
+    assert _is_valid_min_heap(heap)
+
+
+def test_heap_extract_min_empty():
+    """Extract from empty array yields an error."""
+    heap = []
+    ops = list(heap_extract_min(heap))
+    assert ops[0][0] == "error"
+    assert "empty" in ops[0][2].lower()
+
+
+def test_heap_extract_min_single():
+    """Extract from [42] yields done with empty array."""
+    heap = [42]
+    ops = list(heap_extract_min(heap))
+    assert ops[0][0] == "done"
+    assert "42" in ops[0][2]
+    assert heap == []
+
+
+def test_heap_extract_yields_have_heap_array():
+    """Every yield from heap_extract_min must have 'heap_array' in data."""
+    heap = [1, 5, 3, 7, 6]
+    ops = list(heap_extract_min(heap))
+    for op in ops:
+        assert "heap_array" in op[3], f"Yield missing heap_array: {op}"

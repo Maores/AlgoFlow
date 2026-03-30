@@ -514,6 +514,80 @@ def levelorder_traversal(root: Optional[TreeNode]) -> Generator[Tuple[str, Optio
     yield ("done", None, "Level-order traversal complete", {"tree_snapshot": serialize_tree(root)})
 
 
+# ---------------------------------------------------------------------------
+# Heap generators (array-based min-heap)
+# ---------------------------------------------------------------------------
+
+def heap_insert(heap_array: List[int], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step ops for min-heap insertion (sift up).
+
+    Operates on a min-heap stored as a Python list (array representation).
+    Mutates heap_array in-place. Each yield includes a snapshot copy of the array.
+    """
+    heap_array.append(value)
+    i = len(heap_array) - 1
+
+    while i > 0:
+        parent = (i - 1) // 2
+        if heap_array[i] < heap_array[parent]:
+            yield ("compare", i, f"Compare {heap_array[i]} with parent {heap_array[parent]}", {"heap_array": list(heap_array)})
+            heap_array[i], heap_array[parent] = heap_array[parent], heap_array[i]
+            yield ("swap", i, f"Swap {heap_array[i]} up", {"heap_array": list(heap_array)})
+            i = parent
+        else:
+            yield ("compare", i, f"{heap_array[i]} >= parent {heap_array[parent]}, stop", {"heap_array": list(heap_array)})
+            break
+
+    yield ("done", None, f"Inserted {value}", {"heap_array": list(heap_array)})
+
+
+def heap_extract_min(heap_array: List[int]) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
+    """Generator yielding step-by-step ops for min-heap extract-min (sift down).
+
+    Removes and returns the minimum element from a min-heap stored as a Python list.
+    Mutates heap_array in-place. Each yield includes a snapshot copy of the array.
+    """
+    if len(heap_array) == 0:
+        yield ("error", None, "Heap is empty", {"heap_array": []})
+        return
+
+    if len(heap_array) == 1:
+        extracted = heap_array.pop()
+        yield ("done", None, f"Extracted {extracted}", {"heap_array": list(heap_array)})
+        return
+
+    # Swap root with last element
+    heap_array[0], heap_array[-1] = heap_array[-1], heap_array[0]
+    yield ("swap", 0, f"Swap root {heap_array[-1]} with last {heap_array[0]}", {"heap_array": list(heap_array)})
+
+    extracted = heap_array.pop()
+
+    # Sift down from index 0
+    i = 0
+    n = len(heap_array)
+    while True:
+        left = 2 * i + 1
+        right = 2 * i + 2
+        smallest = i
+
+        if left < n and heap_array[left] < heap_array[smallest]:
+            smallest = left
+        if right < n and heap_array[right] < heap_array[smallest]:
+            smallest = right
+
+        if smallest != i:
+            yield ("compare", i, f"Compare {heap_array[i]} with child {heap_array[smallest]}", {"heap_array": list(heap_array)})
+            heap_array[i], heap_array[smallest] = heap_array[smallest], heap_array[i]
+            yield ("swap", i, f"Swap {heap_array[i]} down", {"heap_array": list(heap_array)})
+            i = smallest
+        else:
+            if left < n:
+                yield ("compare", i, f"{heap_array[i]} <= children, stop", {"heap_array": list(heap_array)})
+            break
+
+    yield ("done", None, f"Extracted {extracted}", {"heap_array": list(heap_array)})
+
+
 def bst_search(root: Optional[TreeNode], value: int) -> Generator[Tuple[str, Optional[int], str, Dict[str, Any]], None, None]:
     """Generator that yields step-by-step animation ops for BST search.
 
