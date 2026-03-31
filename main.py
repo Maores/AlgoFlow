@@ -29,6 +29,13 @@ from visualizers.sorting_viz import SortingVisualizer
 from visualizers.pathfinding_viz import PathfindingVisualizer
 from visualizers.tree_viz import TreeVisualizer
 from algorithms.sorting import ALGORITHM_INFO
+from ui.text_input import TextInput
+from algorithms.trees import (
+    bst_insert, bst_delete, bst_search,
+    inorder_traversal, preorder_traversal, postorder_traversal, levelorder_traversal,
+    heap_insert, heap_extract_min,
+)
+from algorithms.pseudocode import PSEUDOCODE
 
 
 class App:
@@ -172,6 +179,51 @@ class App:
         self.pf_div3_x = 0
         self.pf_div4_x = 0
 
+        # ==================== Trees control bar widgets ====================
+
+        self.tree_start_btn = Button(21, btn_y, 144, btn_h, "Start", self.font_small)
+        self.tree_reset_btn = Button(174, btn_y, 114, btn_h, "Reset", self.font_small)
+
+        self.tree_speed_slider = Slider(
+            0, 0, 180, min_val=0.1, max_val=4.0, initial_val=1.0, label="Speed:"
+        )
+
+        # Mode switcher: BST or Heap
+        self.tree_mode_group = ButtonGroup(
+            0, btn_y + 1, ["BST", "Heap"], self.font_small, active_index=0
+        )
+
+        # BST operations (shown in BST mode)
+        self.tree_bst_algo_group = ButtonGroup(
+            0, btn_y + 1, ["Insert", "Delete", "Search"], self.font_small, active_index=0
+        )
+
+        # Heap operations (shown in Heap mode)
+        self.tree_heap_algo_group = ButtonGroup(
+            0, btn_y + 1, ["Insert", "Extract"], self.font_small, active_index=0
+        )
+
+        # Traversals (BST mode only)
+        self.tree_traversal_group = ButtonGroup(
+            0, btn_y + 1, ["Inorder", "Preorder", "Postorder", "Level"], self.font_small, active_index=-1
+        )
+        self.tree_traversal_group.deselect_all()
+
+        # Value input + Go button
+        self.tree_input = TextInput((0, btn_y + 4, 72, btn_h - 8), placeholder="val")
+        self.tree_go_btn = Button(0, btn_y, 66, btn_h, "Go", self.font_small)
+
+        # Help button
+        tree_help_w = self.font_small.size("Help")[0] + 36
+        self.tree_help_btn = Button(0, btn_y, tree_help_w, btn_h, "Help", self.font_small,
+                                    text_color=Colors.TEXT_ACCENT)
+
+        # Tree divider positions
+        self.tree_div1_x = 0
+        self.tree_div2_x = 0
+        self.tree_div3_x = 0
+        self.tree_div4_x = 0
+
         # Arrow key repeat state
         self.arrow_held = None           # "right" or "left" or None
         self.arrow_timer = 0
@@ -237,6 +289,8 @@ class App:
             self._layout_sorting_controls(btn_y, gap, w)
         elif tab == "Pathfinding":
             self._layout_pathfinding_controls(btn_y, gap, w)
+        elif tab == "Trees":
+            self._layout_trees_controls(btn_y, gap, w)
 
         # Keep modals centered on resize
         self.array_modal.resize(w, h)
@@ -357,6 +411,71 @@ class App:
         self.pf_edit_mode_group.set_position(edit_x, edit_y)
         self.pf_edit_label_pos = (canvas_left + 12, edit_y + 8)
 
+    def _layout_trees_controls(self, btn_y, gap, w):
+        """Position all tree control bar widgets."""
+        x = 21
+        tree_viz = self.visualizers["Trees"]
+
+        self.tree_start_btn.rect.topleft = (x, btn_y)
+        x += self.tree_start_btn.rect.width + 9
+
+        self.tree_reset_btn.rect.topleft = (x, btn_y)
+        x += self.tree_reset_btn.rect.width + gap
+
+        self.tree_div1_x = x
+        x += gap
+
+        # Speed slider
+        speed_label_w = self.font_small.size("Speed:")[0] + 14
+        slider_x = x + speed_label_w
+        slider_y = self.control_y + CONTROL_PANEL_HEIGHT // 2
+        self.tree_speed_slider.set_position(slider_x, slider_y, 180)
+        x += speed_label_w + 180 + gap
+
+        self.tree_div2_x = x
+        x += gap
+
+        # Mode group (BST/Heap)
+        self.tree_mode_group.set_position(x, btn_y + 1)
+        mode_width = sum(b.rect.width for b in self.tree_mode_group.buttons) + 5 * (len(self.tree_mode_group.buttons) - 1)
+        x += mode_width + gap
+
+        self.tree_div3_x = x
+        x += gap
+
+        # Operation/algo group (depends on mode)
+        if tree_viz.mode == "bst":
+            self.tree_bst_algo_group.set_position(x, btn_y + 1)
+            algo_width = sum(b.rect.width for b in self.tree_bst_algo_group.buttons) + 5 * (len(self.tree_bst_algo_group.buttons) - 1)
+            x += algo_width + 12
+
+            # Traversal group
+            self.tree_traversal_group.set_position(x, btn_y + 1)
+            trav_width = sum(b.rect.width for b in self.tree_traversal_group.buttons) + 5 * (len(self.tree_traversal_group.buttons) - 1)
+            x += trav_width + gap
+        else:
+            self.tree_heap_algo_group.set_position(x, btn_y + 1)
+            algo_width = sum(b.rect.width for b in self.tree_heap_algo_group.buttons) + 5 * (len(self.tree_heap_algo_group.buttons) - 1)
+            x += algo_width + gap
+
+        self.tree_div4_x = x
+        x += gap
+
+        # Value input + Go button
+        self.tree_input.rect.topleft = (x, btn_y + 4)
+        self.tree_input.rect.width = 72
+        self.tree_input.rect.height = self.tree_go_btn.rect.height - 8
+        x += 72 + 6
+        self.tree_go_btn.rect.topleft = (x, btn_y)
+        x += self.tree_go_btn.rect.width + gap
+
+        # Help button — right-anchored
+        help_right_margin = 14
+        self.tree_help_btn.rect.topright = (
+            w - help_right_margin,
+            self.control_y + (CONTROL_PANEL_HEIGHT - self.tree_help_btn.rect.height) // 2
+        )
+
     def _update_info_panel(self):
         tab = self.tab_bar.get_active_tab()
         viz = self.get_active_visualizer()
@@ -378,6 +497,19 @@ class App:
             })
             self.info_panel.set_pseudocode_state(
                 viz.algorithm_key, getattr(viz, 'current_op_type', '')
+            )
+        elif tab == "Trees":
+            if hasattr(viz, 'get_algorithm_info'):
+                self.info_panel.set_algorithm_info(viz.get_algorithm_info())
+            self.info_panel.set_stats({
+                "tab": "trees",
+                "operations": viz.operations,
+                "comparisons": viz.comparisons,
+                "tree_size": viz.get_size(),
+                "tree_height": viz.get_height(),
+            })
+            self.info_panel.set_pseudocode_state(
+                viz.algorithm_key, getattr(viz, "current_op_type", "")
             )
 
     def get_active_visualizer(self):
@@ -443,6 +575,17 @@ class App:
                 (Colors.GRID_FRONTIER, "Frontier"),
                 (Colors.GRID_VISITED, "Visited"),
                 (Colors.GRID_PATH, "Path"),
+            ])
+        elif new_tab == "Trees":
+            self.info_panel.set_variables({}, [])
+            self.info_panel.set_legend([
+                (Colors.NODE_DEFAULT, "Default"),
+                (Colors.NODE_COMPARING, "Comparing"),
+                (Colors.NODE_HIGHLIGHT, "Highlight"),
+                (Colors.NODE_FOUND, "Found"),
+                (Colors.NODE_NOT_FOUND, "Not Found"),
+                (Colors.NODE_SUCCESSOR, "Successor"),
+                (Colors.NODE_VISITED, "Visited"),
             ])
 
     def _do_arrow_step(self):
@@ -594,7 +737,109 @@ class App:
                 viz.handle_event(event)
                 continue
 
+            elif tab == "Trees":
+                tree_viz = viz
+
+                if self.tree_start_btn.handle_event(event):
+                    tree_viz.toggle()
+
+                if self.tree_reset_btn.handle_event(event):
+                    tree_viz.reset()
+
+                self.tree_speed_slider.handle_event(event)
+
+                mode_change = self.tree_mode_group.handle_event(event)
+                if mode_change:
+                    new_mode = mode_change.lower()
+                    tree_viz.set_mode(new_mode)
+                    self._rebuild_layout(self.width, self.height)
+                    self._update_info_panel()
+
+                if tree_viz.mode == "bst":
+                    algo_change = self.tree_bst_algo_group.handle_event(event)
+                    if algo_change:
+                        algo_map = {"Insert": "BST Insert", "Delete": "BST Delete", "Search": "BST Search"}
+                        tree_viz.set_algorithm(algo_map.get(algo_change, algo_change))
+                        self.tree_traversal_group.deselect_all()
+                        self._update_info_panel()
+
+                    trav_change = self.tree_traversal_group.handle_event(event)
+                    if trav_change:
+                        trav_map = {"Inorder": "Inorder", "Preorder": "Preorder",
+                                    "Postorder": "Postorder", "Level": "Level-order"}
+                        tree_viz.set_algorithm(trav_map.get(trav_change, trav_change))
+                        self.tree_bst_algo_group.deselect_all()
+                        self._update_info_panel()
+                else:
+                    algo_change = self.tree_heap_algo_group.handle_event(event)
+                    if algo_change:
+                        algo_map = {"Insert": "Heap Insert", "Extract": "Heap Extract"}
+                        tree_viz.set_algorithm(algo_map.get(algo_change, algo_change))
+                        self._update_info_panel()
+
+                if self.tree_go_btn.handle_event(event):
+                    self._execute_tree_operation()
+
+                # Enter key also triggers Go
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                    if self.tree_input.focused:
+                        self._execute_tree_operation()
+
+                self.tree_input.handle_event(event)
+
+                if self.tree_help_btn.handle_event(event):
+                    self.help_modal.open(tab="Trees")
+
+                tree_viz.handle_event(event)
+                continue
+
             viz.handle_event(event)
+
+    def _execute_tree_operation(self):
+        """Create and set the appropriate tree generator based on current algorithm."""
+        tree_viz = self.visualizers["Trees"]
+        algo = tree_viz.algorithm_key
+
+        # Traversals don't need a value input
+        if algo in ("Inorder", "Preorder", "Postorder", "Level-order"):
+            gen_map = {
+                "Inorder": inorder_traversal,
+                "Preorder": preorder_traversal,
+                "Postorder": postorder_traversal,
+                "Level-order": levelorder_traversal,
+            }
+            gen = gen_map[algo](tree_viz.bst_root)
+            tree_viz.set_generator(gen)
+            tree_viz.is_running = True
+            self._update_info_panel()
+            return
+
+        # Operations that need a value
+        val = self.tree_input.get_int_value()
+        if val is None:
+            return
+
+        if tree_viz.mode == "bst":
+            if algo == "BST Insert":
+                gen = bst_insert(tree_viz.bst_root, val)
+            elif algo == "BST Delete":
+                gen = bst_delete(tree_viz.bst_root, val)
+            elif algo == "BST Search":
+                gen = bst_search(tree_viz.bst_root, val)
+            else:
+                return
+        else:
+            if algo == "Heap Insert":
+                gen = heap_insert(tree_viz.heap_array, val)
+            elif algo == "Heap Extract":
+                gen = heap_extract_min(tree_viz.heap_array)
+            else:
+                return
+
+        tree_viz.set_generator(gen)
+        tree_viz.is_running = True
+        self.tree_input.clear()
+        self._update_info_panel()
 
     def update(self):
         # Continuous arrow key stepping
@@ -624,6 +869,8 @@ class App:
             # Use the correct speed slider depending on active tab
             if tab == "Pathfinding":
                 multiplier = self.pf_speed_slider.get_value()
+            elif tab == "Trees":
+                multiplier = self.tree_speed_slider.get_value()
             else:
                 multiplier = self.speed_slider.get_value()
 
@@ -663,6 +910,17 @@ class App:
                 "status": viz.get_status() if hasattr(viz, 'get_status') else ""
             })
 
+        elif tab == "Trees":
+            self.info_panel.set_stats({
+                "tab": "trees",
+                "operations": viz.operations,
+                "comparisons": viz.comparisons,
+                "tree_size": viz.get_size(),
+                "tree_height": viz.get_height(),
+            })
+            # Update text input cursor blink
+            self.tree_input.update(self.clock.get_time())
+
         # Pass pseudocode state (algorithm key + current op type)
         if hasattr(viz, "current_op_type"):
             self.info_panel.set_pseudocode_state(viz.algorithm_key, viz.current_op_type)
@@ -672,6 +930,8 @@ class App:
             self.start_button.text = "Pause" if viz.is_running else "Start"
         elif tab == "Pathfinding":
             self.pf_start_btn.text = "Pause" if viz.is_running else "Start"
+        elif tab == "Trees":
+            self.tree_start_btn.text = "Pause" if viz.is_running else "Start"
 
 
 
@@ -740,6 +1000,25 @@ class App:
             label_surf = self.font_small.render("Draw:", True, Colors.TEXT_SECONDARY)
             self.screen.blit(label_surf, self.pf_edit_label_pos)
             self.pf_edit_mode_group.draw(self.screen)
+
+        elif tab == "Trees":
+            tree_viz = self.visualizers["Trees"]
+            self.tree_start_btn.draw(self.screen)
+            self.tree_reset_btn.draw(self.screen)
+            self._draw_divider(self.tree_div1_x)
+            self.tree_speed_slider.draw(self.screen, self.font_small)
+            self._draw_divider(self.tree_div2_x)
+            self.tree_mode_group.draw(self.screen)
+            self._draw_divider(self.tree_div3_x)
+            if tree_viz.mode == "bst":
+                self.tree_bst_algo_group.draw(self.screen)
+                self.tree_traversal_group.draw(self.screen)
+            else:
+                self.tree_heap_algo_group.draw(self.screen)
+            self._draw_divider(self.tree_div4_x)
+            self.tree_input.draw(self.screen)
+            self.tree_go_btn.draw(self.screen)
+            self.tree_help_btn.draw(self.screen)
 
         # Modal overlays (drawn last, on top of everything)
         self.array_modal.draw(self.screen)
