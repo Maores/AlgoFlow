@@ -16,6 +16,17 @@ class HelpModal:
         ("[Esc]", "Close / Quit"),
     ]
 
+    TREES_CONTROLS = [
+        ("Enter digits", "Type value (1-99)"),
+        ("Go / Enter", "Execute operation"),
+        ("[Space]", "Start/Pause traversal"),
+        ("→", "Step forward"),
+        ("←", "Step backward"),
+        ("[R]", "Reset tree"),
+        ("[H]", "Toggle this help"),
+        ("Tab", "Switch tabs"),
+    ]
+
     PATHFINDING_CONTROLS = [
         ("[Space]", "Play / Pause"),
         ("[R]", "Reset Algorithm"),
@@ -38,7 +49,7 @@ class HelpModal:
 
         self.card_w = 420
         # Dynamic height based on longest controls list
-        max_rows = max(len(self.SORTING_CONTROLS), len(self.PATHFINDING_CONTROLS))
+        max_rows = max(len(self.SORTING_CONTROLS), len(self.PATHFINDING_CONTROLS), len(self.TREES_CONTROLS))
         self.card_h = 100 + max_rows * 34 + 40  # title + rows + hint padding
         self.close_btn_size = 28
         self._overlay = None
@@ -112,6 +123,8 @@ class HelpModal:
         # Title
         if self.current_tab == "Pathfinding":
             title_text = "Pathfinding Controls"
+        elif self.current_tab == "Trees":
+            title_text = "Trees Controls"
         else:
             title_text = "Sorting Controls"
         title_surf = self.font_title.render(title_text, True, Colors.TEXT_PRIMARY)
@@ -123,6 +136,8 @@ class HelpModal:
         # Select controls based on tab
         if self.current_tab == "Pathfinding":
             controls = self.PATHFINDING_CONTROLS
+        elif self.current_tab == "Trees":
+            controls = self.TREES_CONTROLS
         else:
             controls = self.SORTING_CONTROLS
 
