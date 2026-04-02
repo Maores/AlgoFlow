@@ -814,6 +814,14 @@ class App:
             self._update_info_panel()
             return
 
+        # Heap Extract doesn't need a value
+        if tree_viz.mode == "heap" and algo == "Heap Extract":
+            gen = heap_extract_min(tree_viz.heap_array)
+            tree_viz.set_generator(gen)
+            tree_viz.is_running = True
+            self._update_info_panel()
+            return
+
         # Operations that need a value
         val = self.tree_input.get_int_value()
         if val is None:
@@ -821,6 +829,9 @@ class App:
 
         if tree_viz.mode == "bst":
             if algo == "BST Insert":
+                if tree_viz.get_height() >= tree_viz.MAX_BST_DEPTH:
+                    tree_viz.current_status = f"Max depth ({tree_viz.MAX_BST_DEPTH}) reached"
+                    return
                 gen = bst_insert(tree_viz.bst_root, val)
             elif algo == "BST Delete":
                 gen = bst_delete(tree_viz.bst_root, val)
@@ -831,8 +842,6 @@ class App:
         else:
             if algo == "Heap Insert":
                 gen = heap_insert(tree_viz.heap_array, val)
-            elif algo == "Heap Extract":
-                gen = heap_extract_min(tree_viz.heap_array)
             else:
                 return
 

@@ -53,6 +53,13 @@ class TreeVisualizer(BaseVisualizer):
         self.current_status = ""
         self.highlighted_lines = []
 
+        # Layout cache (invalidated on tree changes)
+        self._layout_cache = {}
+        self._layout_dirty = True
+        self._cached_nodes = []
+        self._cached_size = 0
+        self._cached_height = 0
+
         self.reset()
 
     def reset(self):
@@ -74,6 +81,7 @@ class TreeVisualizer(BaseVisualizer):
         self.current_status = ""
         self.current_op_type = ""
         self.highlighted_lines = []
+        self._invalidate_layout()
 
     def step(self):
         self.step_forward()
@@ -86,7 +94,7 @@ class TreeVisualizer(BaseVisualizer):
             try:
                 op = next(self.generator)
                 self._apply_operation(op)
-                snap = self._take_snapshot()
+                snap = self._take_snapshot(op)
                 self.history.append(snap)
                 self.history_pos = len(self.history) - 1
             except StopIteration:
@@ -177,10 +185,22 @@ class TreeVisualizer(BaseVisualizer):
         else:
             self.highlighted_lines = []
 
-    def _take_snapshot(self):
+        self._invalidate_layout()
+
+    def _take_snapshot(self, op=None):
+        # Reuse the generator's snapshot when available to avoid double serialization
+        _, _, _, data = op if op else (None, None, None, {})
+        if "tree_snapshot" in data:
+            bst_snapshot = data["tree_snapshot"]
+        else:
+            bst_snapshot = serialize_tree(self.bst_root)
+        if "heap_array" in data:
+            heap_snapshot = list(data["heap_array"])
+        else:
+            heap_snapshot = list(self.heap_array)
         return {
-            "bst_root": serialize_tree(self.bst_root),
-            "heap_array": list(self.heap_array),
+            "bst_root": bst_snapshot,
+            "heap_array": heap_snapshot,
             "node_colors": dict(self.node_colors),
             "operations": self.operations,
             "comparisons": self.comparisons,
@@ -199,6 +219,19 @@ class TreeVisualizer(BaseVisualizer):
         self.current_status = snap["current_status"]
         self.current_op_type = snap["current_op_type"]
         self.highlighted_lines = list(snap["highlighted_lines"])
+        self._invalidate_layout()
+
+    def _invalidate_layout(self):
+        self._layout_dirty = True
+
+    def _refresh_cache_if_dirty(self):
+        if not self._layout_dirty:
+            return
+        self._layout_cache = self._compute_bst_layout(self.bst_root, self.canvas_rect)
+        self._cached_nodes = self._collect_nodes(self.bst_root)
+        self._cached_size = self._count_nodes(self.bst_root)
+        self._cached_height = self._tree_height(self.bst_root)
+        self._layout_dirty = False
 
     # ------------------------------------------------------------------
     # BST Layout Engine
@@ -310,10 +343,11 @@ class TreeVisualizer(BaseVisualizer):
     def _draw_bst(self, surface):
         if self.bst_root is None:
             return
-        positions = self._compute_bst_layout(self.bst_root, self.canvas_rect)
+        self._refresh_cache_if_dirty()
+        positions = self._layout_cache
         if not positions:
             return
-        nodes = self._collect_nodes(self.bst_root)
+        nodes = self._cached_nodes
 
         # Draw edges
         for nid, val, left_id, right_id in nodes:
@@ -392,6 +426,20 @@ class TreeVisualizer(BaseVisualizer):
 
     def set_algorithm(self, key):
         self.algorithm_key = key
+        self.generator = None
+        self.history = []
+        self.history_pos = -1
+        self.operations = 0
+        self.comparisons = 0
+        self.is_running = False
+        self.is_complete = False
+        self.current_status = ""
+        self.current_op_type = ""
+        self.highlighted_lines = []
+        if self.mode == "bst":
+            self._reset_bst_colors()
+        else:
+            self.node_colors = {}
 
     def set_mode(self, mode):
         if mode != self.mode:
@@ -416,12 +464,14 @@ class TreeVisualizer(BaseVisualizer):
 
     def get_size(self):
         if self.mode == "bst":
-            return self._count_nodes(self.bst_root)
+            self._refresh_cache_if_dirty()
+            return self._cached_size
         return len(self.heap_array)
 
     def get_height(self):
         if self.mode == "bst":
-            return self._tree_height(self.bst_root)
+            self._refresh_cache_if_dirty()
+            return self._cached_height
         if not self.heap_array:
             return 0
         return math.floor(math.log2(len(self.heap_array))) + 1
@@ -437,6 +487,8 @@ class TreeVisualizer(BaseVisualizer):
         if node is None:
             return 0
         return 1 + self._count_nodes(node.left) + self._count_nodes(node.right)
+
+    MAX_BST_DEPTH = 8
 
     def _tree_height(self, node):
         if node is None:
