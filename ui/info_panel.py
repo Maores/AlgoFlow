@@ -45,6 +45,11 @@ class InfoPanel:
         self.frontier_size = 0
         self.path_length = 0
         self.total_cost = 0
+        # Trees-specific stats
+        self.tree_operations = 0
+        self.tree_comparisons = 0
+        self.tree_size = 0
+        self.tree_height = 0
 
         # Legend items: list of (color, label)
         self.legend_items = []
@@ -80,14 +85,20 @@ class InfoPanel:
         Pathfinding: tab="pathfinding", cells_explored, frontier_size, path_length, status
         """
         self.stats_tab = stats_dict.get("tab", "sorting")
-        self.comparisons = stats_dict.get("comparisons", 0)
-        self.swaps = stats_dict.get("swaps", 0)
         self.status = stats_dict.get("status", "")
-        # Pathfinding-specific
-        self.cells_explored = stats_dict.get("cells_explored", 0)
-        self.frontier_size = stats_dict.get("frontier_size", 0)
-        self.path_length = stats_dict.get("path_length", 0)
-        self.total_cost = stats_dict.get("total_cost", 0)
+        if self.stats_tab == "trees":
+            self.tree_operations = stats_dict.get("operations", 0)
+            self.tree_comparisons = stats_dict.get("comparisons", 0)
+            self.tree_size = stats_dict.get("tree_size", 0)
+            self.tree_height = stats_dict.get("tree_height", 0)
+        elif self.stats_tab == "pathfinding":
+            self.cells_explored = stats_dict.get("cells_explored", 0)
+            self.frontier_size = stats_dict.get("frontier_size", 0)
+            self.path_length = stats_dict.get("path_length", 0)
+            self.total_cost = stats_dict.get("total_cost", 0)
+        else:
+            self.comparisons = stats_dict.get("comparisons", 0)
+            self.swaps = stats_dict.get("swaps", 0)
 
     def set_legend(self, legend_items):
         self.legend_items = legend_items
@@ -217,7 +228,14 @@ class InfoPanel:
             ]
 
         # --- Build stats rows dynamically ---
-        if self.stats_tab == "pathfinding":
+        if self.stats_tab == "trees":
+            stat_rows = [
+                ("Operations", str(self.tree_operations)),
+                ("Comparisons", str(self.tree_comparisons)),
+                ("Tree Size", str(self.tree_size)),
+                ("Tree Height", str(self.tree_height)),
+            ]
+        elif self.stats_tab == "pathfinding":
             stat_rows = [
                 ("Explored", str(self.cells_explored)),
                 ("Frontier", str(self.frontier_size)),
