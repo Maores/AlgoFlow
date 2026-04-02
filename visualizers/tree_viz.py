@@ -6,6 +6,7 @@ from config import (
     Colors, FONT_FAMILY,
     TREE_NODE_RADIUS, TREE_LEVEL_GAP, TREE_MIN_H_SPACING,
     TREE_EDGE_WIDTH, HEAP_STRIP_HEIGHT, DEFAULT_BST_VALUES,
+    DEFAULT_HEAP_VALUES,
 )
 from algorithms.trees import (
     TreeNode, serialize_tree, deserialize_tree,
@@ -68,7 +69,7 @@ class TreeVisualizer(BaseVisualizer):
             self.bst_root = bst_from_values(DEFAULT_BST_VALUES)
             self._reset_bst_colors()
         else:
-            self.heap_array = []
+            self.heap_array = list(DEFAULT_HEAP_VALUES)
             self.node_colors = {}
 
         self.generator = None
@@ -270,7 +271,7 @@ class TreeVisualizer(BaseVisualizer):
         tree_h = max(max_y - min_y, 1)
         scale_x = (canvas_rect.width - 60) / tree_w if tree_w > 0 else 1
         scale_y = (canvas_rect.height - 60) / tree_h if tree_h > 0 else 1
-        scale = min(scale_x, scale_y, 1.5)
+        scale = min(scale_x, scale_y)
         offset_x = canvas_rect.x + (canvas_rect.width - tree_w * scale) / 2
         offset_y = canvas_rect.y + 30
         return {
@@ -444,6 +445,7 @@ class TreeVisualizer(BaseVisualizer):
     def set_mode(self, mode):
         if mode != self.mode:
             self.mode = mode
+            self.algorithm_key = "BST Insert" if mode == "bst" else "Heap Insert"
             self.reset()
 
     def set_generator(self, gen):
