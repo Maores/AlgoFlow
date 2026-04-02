@@ -66,8 +66,8 @@ PSEUDOCODE = {
             "    copy remaining elements",
         ],
         "highlight_map": {
-            "compare": [10, 11],
-            "set": [12],
+            "compare": [9],
+            "set": [10, 11],
             "sorted": [5],
             "done": [],
         },
