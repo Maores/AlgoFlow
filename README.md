@@ -36,3 +36,7 @@ python -m pytest tests
 - `ui/`: reusable widgets (buttons, tab bar, slider, text input, info panel, help and custom-array windows).
 - `main.py`: the app loop; `config.py`: colors, sizes and constants.
 - `docs/`: the design notes and the development log.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
